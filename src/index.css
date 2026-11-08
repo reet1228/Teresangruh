@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-cinzel: "Cinzel", serif;
+  --font-marcellus: "Marcellus", serif;
+  --font-script: "Great Vibes", cursive;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  
+  --color-gold-light: #F4E8D1;
+  --color-gold-base: #C9A86A;
+  --color-gold-dark: #916E34;
+  --color-royal-cream: #FAF7F2;
+  --color-royal-peach: #FFF4ED;
+  --color-royal-navy: #0F172A;
+  --color-royal-maroon: #681A2B;
+}
+
+@layer utilities {
+  .font-cinzel {
+    font-family: 'Cinzel', serif;
+  }
+  .font-marcellus {
+    font-family: 'Marcellus', serif;
+  }
+  .font-script {
+    font-family: 'Great Vibes', cursive;
+  }
+  .font-sans {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .text-gold-gradient {
+    background: linear-gradient(135deg, #ECC880 0%, #BA9045 50%, #D4AF37 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .bg-gold-gradient {
+    background: linear-gradient(135deg, #E6C57F 0%, #B88E3E 100%);
+  }
+  .bg-royal-mesh {
+    background-color: #FAF7F2;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(245, 230, 211, 0.5) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(254, 237, 222, 0.4) 0px, transparent 50%);
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF7F2;
+}
+::-webkit-scrollbar-thumb {
+  background: #D9C3A3;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #BA9045;
+}
