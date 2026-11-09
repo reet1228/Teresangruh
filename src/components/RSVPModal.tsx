@@ -25,6 +25,7 @@ interface GuestEntry {
   aadharFileName: string | null;
   aadharFileSize?: string;
   aadharNumber?: string;
+  aadharFile?: File | null;
 }
 
 export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
@@ -41,6 +42,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
 
   const [message, setMessage] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -83,6 +86,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         ...updated[index],
         aadharFileName: file.name,
         aadharFileSize: formattedSize,
+        aadharFile: file,
       };
       return updated;
     });
@@ -95,6 +99,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         ...updated[index],
         aadharFileName: null,
         aadharFileSize: undefined,
+        aadharFile: null,
       };
       return updated;
     });
@@ -106,17 +111,20 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Save RSVP record to persistent storage and Excel database
-    saveRSVP({
-      familyName: familyName.trim(),
-      primaryPhone: primaryPhone.trim(),
-      attendance,
-      guestCount,
-      guests,
-      message: message.trim(),
-    });
+    if (isSaving) return;
+    setIsSaving(true);
+    setSubmitError(null);
+    try {
+      await saveRSVP({
+        familyName: familyName.trim(),
+        primaryPhone: primaryPhone.trim(),
+        attendance,
+        guestCount,
+        guests,
+        message: message.trim(),
+      });
 
     try {
       confetti({
@@ -127,7 +135,12 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
       });
     } catch {}
 
-    setIsSubmitted(true);
+      setIsSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Something went wrong while submitting your RSVP.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSendViaWhatsApp = () => {
@@ -231,6 +244,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
+            {submitError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{submitError}</div>}
             {/* Header */}
             <div className="text-center mb-6">
               <span className="text-[10px] font-cinzel font-bold text-[#8C672A] tracking-[0.25em] uppercase block mb-1">
@@ -466,9 +480,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
               </button>
               <button
                 type="submit"
+                disabled={isSaving}
                 className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#DFBF7E] via-[#ECC880] to-[#DFBF7E] text-[#1F140A] font-cinzel text-xs font-bold tracking-wider hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all border border-[#C29E57] flex items-center gap-1.5 cursor-pointer"
               >
-                <span>Submit RSVP</span>
+                <span>{isSaving ? "Submitting..." : "Submit RSVP"}</span>
                 <Heart className="w-3.5 h-3.5 fill-[#1F140A]" />
               </button>
             </div>

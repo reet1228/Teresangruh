@@ -15,14 +15,14 @@ import {
   Eye,
   AlertCircle,
 } from "lucide-react";
-import { getStoredRSVPs, exportRSVPsToExcel, StoredRSVP } from "../utils/rsvpStorage";
+import { getStoredRSVPs, exportRSVPsToExcel, StoredRSVP, deleteStoredRSVP, getAadhaarSignedUrl } from "../utils/rsvpStorage";
+import { supabase } from "../lib/supabase";
 
 interface HostRSVPAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const HOST_PASSCODES = ["2026", "teresangruh", "#teresangruh", "1012"];
 
 export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
   isOpen,
@@ -30,17 +30,19 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [passcodeInput, setPasscodeInput] = useState<string>("");
+  const [adminEmail, setAdminEmail] = useState<string>("Rithhinishacr7@gmail.com");
+  const [isLoading, setIsLoading] = useState(false);
   const [passcodeError, setPasscodeError] = useState<string | null>(null);
 
   const [rsvps, setRsvps] = useState<StoredRSVP[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedRsvp, setSelectedRsvp] = useState<StoredRSVP | null>(null);
 
-  // Check if previously unlocked in this session
+  // Restore the real Supabase authentication session.
   useEffect(() => {
-    if (sessionStorage.getItem("host_rsvp_auth") === "true") {
-      setIsAuthenticated(true);
-    }
+    supabase.auth.getSession().then(({ data }) => setIsAuthenticated(!!data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setIsAuthenticated(!!session));
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   // Load RSVPs when modal opens or is authenticated
@@ -50,39 +52,44 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
     }
   }, [isOpen, isAuthenticated]);
 
-  const loadData = () => {
-    const list = getStoredRSVPs();
-    setRsvps(list);
+  const loadData = async () => {
+    setIsLoading(true);
+    try { setRsvps(await getStoredRSVPs()); }
+    catch (error) { setPasscodeError(error instanceof Error ? error.message : "Unable to load RSVP records."); }
+    finally { setIsLoading(false); }
   };
 
   if (!isOpen) return null;
 
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
+  const handlePasscodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = passcodeInput.trim().toLowerCase();
-    if (HOST_PASSCODES.includes(clean)) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem("host_rsvp_auth", "true");
-      setPasscodeError(null);
-      loadData();
-    } else {
-      setPasscodeError("Invalid passcode. Please enter 2026 or #tereSAngRUh");
-    }
+    setIsLoading(true);
+    setPasscodeError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email: adminEmail.trim(), password: passcodeInput });
+    setIsLoading(false);
+    if (error) setPasscodeError(error.message);
+    else { setIsAuthenticated(true); setPasscodeInput(""); await loadData(); }
   };
 
   const handleDownloadExcel = () => {
     exportRSVPsToExcel(rsvps);
   };
 
-  const handleDeleteEntry = (id: string, familyName: string) => {
+  const handleDeleteEntry = async (id: string, familyName: string) => {
     if (window.confirm(`Are you sure you want to remove the RSVP entry for "${familyName}"?`)) {
-      const updated = rsvps.filter((r) => r.id !== id);
-      localStorage.setItem("teresangruh_wedding_rsvps_v1", JSON.stringify(updated));
-      setRsvps(updated);
-      if (selectedRsvp?.id === id) {
-        setSelectedRsvp(null);
-      }
+      try {
+        const target = rsvps.find(r => r.id === id);
+        await deleteStoredRSVP(id, target?.guests || []);
+        setRsvps(current => current.filter(r => r.id !== id));
+        if (selectedRsvp?.id === id) setSelectedRsvp(null);
+      } catch (error) { setPasscodeError(error instanceof Error ? error.message : "Could not delete RSVP."); }
     }
+  };
+
+  const handleOpenAadhaar = async (path?: string | null) => {
+    if (!path) return;
+    try { const url = await getAadhaarSignedUrl(path); window.open(url, "_blank", "noopener,noreferrer"); }
+    catch (error) { setPasscodeError(error instanceof Error ? error.message : "Could not open document."); }
   };
 
   // Filtered RSVPs
@@ -133,11 +140,12 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
               Private RSVP Portal
             </h3>
             <p className="font-marcellus text-xs text-stone-600 mb-6">
-              Enter your host passcode to manage RSVPs and download the complete Excel sheet.
+              Sign in with your authorised administrator email and Supabase password.
             </p>
 
             <form onSubmit={handlePasscodeSubmit} className="space-y-4">
               <div>
+                <input type="email" required value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="Administrator email" className="w-full mb-3 px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]" />
                 <input
                   type="password"
                   autoFocus
@@ -147,7 +155,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                     setPasscodeInput(e.target.value);
                     setPasscodeError(null);
                   }}
-                  placeholder="Enter passcode (e.g. 2026)"
+                  placeholder="Supabase account password"
                   className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center font-mono text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
                 />
                 {passcodeError && (
@@ -156,9 +164,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                     <span>{passcodeError}</span>
                   </p>
                 )}
-                <p className="text-[10px] text-stone-500 mt-2 font-sans">
-                  Default Host Passcode: <span className="font-bold text-[#8C672A]">2026</span> or <span className="font-bold text-[#8C672A]">#tereSAngRUh</span>
-                </p>
+
               </div>
 
               <button
@@ -166,7 +172,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                 className="w-full py-2.5 px-4 rounded-full bg-[#352516] text-[#FAF7F2] font-cinzel text-xs font-bold tracking-wider hover:bg-[#23180E] transition-all border border-[#5A4533] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
               >
                 <Unlock className="w-3.5 h-3.5 text-[#ECC880]" />
-                <span>Unlock Host Portal</span>
+                <span>{isLoading ? "Signing in..." : "Sign In to Host Portal"}</span>
               </button>
             </form>
           </div>
@@ -321,10 +327,11 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                                 {g.name || `Guest ${gIdx + 1}`}
                               </span>
                               {g.aadharFileName ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                <button type="button" onClick={() => handleOpenAadhaar(g.aadharPath)} disabled={!g.aadharPath} className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0 disabled:opacity-60">
                                   <ShieldCheck className="w-3 h-3" />
                                   <span className="truncate max-w-[90px]">{g.aadharFileName}</span>
-                                </span>
+                                  {g.aadharPath && <Eye className="w-3 h-3" />}
+                                </button>
                               ) : (
                                 <span className="text-[10px] text-stone-400 italic">No Aadhaar</span>
                               )}
@@ -352,7 +359,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    sessionStorage.removeItem("host_rsvp_auth");
+                    void supabase.auth.signOut();
                     setIsAuthenticated(false);
                   }}
                   className="px-3 py-1.5 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-cinzel text-[11px]"
