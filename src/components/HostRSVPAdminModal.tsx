@@ -71,9 +71,22 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
     else { setIsAuthenticated(true); setPasscodeInput(""); await loadData(); }
   };
 
-  const handleDownloadExcel = () => {
-    exportRSVPsToExcel(rsvps);
-  };
+  const handleDownloadExcel = async () => {
+  setIsLoading(true);
+  setPasscodeError(null);
+
+  try {
+    await exportRSVPsToExcel(rsvps);
+  } catch (error) {
+    setPasscodeError(
+      error instanceof Error
+        ? error.message
+        : 'Excel export failed.'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleDeleteEntry = async (id: string, familyName: string) => {
     if (window.confirm(`Are you sure you want to remove the RSVP entry for "${familyName}"?`)) {
