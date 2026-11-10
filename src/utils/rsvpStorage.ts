@@ -175,11 +175,10 @@ export async function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
         const signedUrl = await getAadhaarSignedUrl(guest.aadharPath);
         const response = await fetch(signedUrl);
 
-        if (!response.ok) {
-          row.getCell(8).value = 'Image unavailable';
-          continue;
-        }
-
+       if (!response.ok) {
+  row.getCell(8).value = `Fetch failed: HTTP ${response.status}`;
+  continue;
+}
         const contentType = response.headers.get('content-type') || '';
         const extension = guest.aadharPath.split('.').pop()?.toLowerCase();
 
@@ -212,10 +211,14 @@ export async function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
         });
 
         row.getCell(8).value = '';
-      } catch (error) {
-        console.error('Aadhaar thumbnail export failed:', error);
-        row.getCell(8).value = 'Image unavailable';
-      }
+    } catch (error) {
+  console.error('Aadhaar thumbnail export failed:', error);
+
+  row.getCell(8).value =
+    error instanceof Error
+      ? `Error: ${error.message}`
+      : `Error: ${String(error)}`;
+}
     }
   }
 
