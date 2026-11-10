@@ -1,4 +1,5 @@
 /** Supabase-backed RSVP storage and Excel export for Ruchika & Sanyam. */
+import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
@@ -98,16 +99,161 @@ export async function getAadhaarSignedUrl(path: string): Promise<string> {
   return data.signedUrl;
 }
 
-export function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
-  const summaryRows = rsvps.map((item, index) => ({
-    'S.No': index + 1, 'Submission Date & Time': item.dateFormatted, 'Family Name': item.familyName,
-    'Contact Phone': item.primaryPhone || 'N/A',
-    'Attendance Status': item.attendance === 'attending' ? 'Joyfully Attending' : 'Declining',
-    'Total Number of Guests': item.attendance === 'attending' ? item.guestCount : 0,
-    'Guest Names': item.attendance === 'attending' ? item.guests.map((g, i) => `${i + 1}. ${g.name || 'Guest'}`).join('; ') : 'N/A',
-    'Aadhaar Cards Uploaded': item.attendance === 'attending' ? item.guests.map((g, i) => `${i + 1}. ${g.name || 'Guest'}: ${g.aadharFileName || 'Not Uploaded'}`).join('; ') : 'N/A',
-    'Wishes & Blessings': item.message || '-',
-  }));
+
+export async function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
+  const workbook = new ExcelJS.Workbook();
+
+  workbook.creator = 'Ruchika & Sanyam Wedding';
+  workbook.created = new Date();
+
+  // Sheet 1: Family summary
+  const summary = workbook.addWorksheet('RSVP Family Summary');
+
+  summary.columns = [
+    { header: 'S.No', key: 'sno', width: 8 },
+    { header: 'Submission Date & Time', key: 'date', width: 24 },
+    { header: 'Family Name', key: 'family', width: 25 },
+    { header: 'Contact Phone', key: 'phone', width: 18 },
+    { header: 'Attendance Status', key: 'attendance', width: 22 },
+    { header: 'Total Guests', key: 'count', width: 15 },
+    { header: 'Guest Names', key: 'names', width: 40 },
+    { header: 'Aadhaar Cards Uploaded', key: 'aadhaar', width: 40 },
+    { header: 'Wishes & Blessings', key: 'message', width: 35 },
+  ];
+
+  rsvps.forEach((item, index) => {
+    summary.addRow({
+      sno: index + 1,
+      date: item.dateFormatted,
+      family: item.familyName,
+      phone: item.primaryPhone || 'N/A',
+      attendance: item.attendance === 'attending'
+        ? 'Joyfully Attending' : 'Declining',
+      count: item.attendance === 'attending' ? item.guestCount : 0,
+      names: item.guests.map(g => g.name).join('; '),
+      aadhaar: item.guests.map(g =>
+        `${g.name}: ${g.aadharFileName || 'Not Uploaded'}`
+      ).join('; '),
+      message: item.message || '-',
+    });
+  });
+
+  // Sheet 2: Hotel check-in with Aadhaar thumbnails
+  const hotel = workbook.addWorksheet('Hotel Check-In & Aadhaar List');
+
+  hotel.columns = [
+    { header: 'Guest S.No', key: 'sno', width: 12 },
+    { header: 'Family / Group Name', key: 'family', width: 25 },
+    { header: 'Guest Full Name', key: 'name', width: 25 },
+    { header: 'Contact Phone', key: 'phone', width: 18 },
+    { header: 'Aadhaar File Name', key: 'filename', width: 30 },
+    { header: 'File Size', key: 'size', width: 16 },
+    { header: 'Submission Date', key: 'date', width: 24 },
+    { header: 'Aadhaar Thumbnail', key: 'image', width: 23 },
+  ];
+
+  let counter = 1;
+
+  for (const item of rsvps.filter(r => r.attendance === 'attending')) {
+    for (const guest of item.guests) {
+      const row = hotel.addRow({
+        sno: counter++,
+        family: item.familyName,
+        name: guest.name || 'Guest',
+        phone: item.primaryPhone || 'N/A',
+        filename: guest.aadharFileName || 'Not uploaded',
+        size: guest.aadharFileSize || 'N/A',
+        date: item.dateFormatted,
+        image: guest.aadharPath ? 'Loading image...' : 'Not uploaded',
+      });
+
+      row.height = 82;
+
+      if (!guest.aadharPath) continue;
+
+      try {
+        const signedUrl = await getAadhaarSignedUrl(guest.aadharPath);
+        const response = await fetch(signedUrl);
+
+        if (!response.ok) {
+          row.getCell(8).value = 'Image unavailable';
+          continue;
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        const extension = guest.aadharPath.split('.').pop()?.toLowerCase();
+
+        let imageExtension: 'jpeg' | 'png' | 'gif' | null = null;
+
+        if (contentType.includes('jpeg') || extension === 'jpg' || extension === 'jpeg') {
+          imageExtension = 'jpeg';
+        } else if (contentType.includes('png') || extension === 'png') {
+          imageExtension = 'png';
+        } else if (contentType.includes('gif') || extension === 'gif') {
+          imageExtension = 'gif';
+        }
+
+        if (!imageExtension) {
+          row.getCell(8).value = 'Unsupported image format';
+          continue;
+        }
+
+        const imageBuffer = new Uint8Array(await response.arrayBuffer());
+
+        const imageId = workbook.addImage({
+          buffer: imageBuffer,
+          extension: imageExtension,
+        });
+
+        hotel.addImage(imageId, {
+          tl: { col: 7, row: row.number - 1 },
+          br: { col: 8, row: row.number },
+          editAs: 'oneCell',
+        });
+
+        row.getCell(8).value = '';
+      } catch (error) {
+        console.error('Aadhaar thumbnail export failed:', error);
+        row.getCell(8).value = 'Image unavailable';
+      }
+    }
+  }
+
+  // Style worksheet headings
+  [summary, hotel].forEach(sheet => {
+    const header = sheet.getRow(1);
+    header.height = 30;
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    header.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: '80602F' },
+    };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  });
+
+  // Download workbook
+  const buffer = await workbook.xlsx.writeBuffer();
+
+  const blob = new Blob(
+    [new Uint8Array(buffer)],
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `Ruchika_Sanyam_Wedding_RSVP_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
   const guestRows: Record<string, string | number>[] = [];
   let counter = 1;
   rsvps.filter(r => r.attendance === 'attending').forEach(item => item.guests.forEach(g => guestRows.push({
