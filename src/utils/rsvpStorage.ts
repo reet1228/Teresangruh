@@ -254,17 +254,4 @@ export async function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-  const guestRows: Record<string, string | number>[] = [];
-  let counter = 1;
-  rsvps.filter(r => r.attendance === 'attending').forEach(item => item.guests.forEach(g => guestRows.push({
-    'Guest S.No': counter++, 'Family / Group Name': item.familyName, 'Guest Full Name': g.name || 'Guest',
-    'Contact Phone': item.primaryPhone || 'N/A', 'Aadhaar Card File Name': g.aadharFileName || 'Pending Upload',
-    'Aadhaar File Size': g.aadharFileSize || 'N/A', 'Submission Date': item.dateFormatted,
-  })));
-  const wb = XLSX.utils.book_new();
-  const ws1 = XLSX.utils.json_to_sheet(summaryRows); ws1['!cols'] = [6,22,28,18,20,22,45,45,40].map(wch => ({ wch }));
-  const ws2 = XLSX.utils.json_to_sheet(guestRows); ws2['!cols'] = [12,28,28,18,32,18,22].map(wch => ({ wch }));
-  XLSX.utils.book_append_sheet(wb, ws1, 'RSVP Family Summary');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Hotel Check-In & Aadhaar List');
-  XLSX.writeFile(wb, `Ruchika_Sanyam_Wedding_RSVP_List_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
+  
