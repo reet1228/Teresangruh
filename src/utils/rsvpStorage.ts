@@ -94,6 +94,7 @@ export async function deleteStoredRSVP(id: string, guests: StoredGuest[]): Promi
 }
 
 
+
 export async function getAadhaarSignedUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage
     .from('guest-aadhaar')
@@ -104,25 +105,6 @@ export async function getAadhaarSignedUrl(path: string): Promise<string> {
   }
 
   return data.signedUrl;
-}
-
-  const fileName = path.split('/').pop();
-
-  const fileExists = data?.some(file => file.name === fileName);
-
-  if (!fileExists) {
-    throw new Error(`File not found in storage folder: ${fileName}`);
-  }
-
-  const { data: signedData, error: signedError } = await supabase.storage
-    .from('guest-aadhaar')
-    .createSignedUrl(path, 300);
-
-  if (signedError) {
-    throw new Error(`Signed URL failed: ${signedError.message}`);
-  }
-
-  return signedData.signedUrl;
 }
 
 
