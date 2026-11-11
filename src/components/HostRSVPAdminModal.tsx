@@ -88,6 +88,110 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
   }
 };
 
+const handleDownloadAadhaarPDF = async () => {
+  const printWindow = window.open("", "_blank");
+
+  if (!printWindow) {
+    setPasscodeError("Please allow pop-ups to generate the Aadhaar PDF.");
+    return;
+  }
+
+  setIsLoading(true);
+  setPasscodeError(null);
+
+  try {
+    const guestsWithAadhaar = rsvps.flatMap((rsvp) =>
+      rsvp.guests
+        .filter((guest) => guest.aadharPath)
+        .map((guest) => ({ rsvp, guest }))
+    );
+
+    if (guestsWithAadhaar.length === 0) {
+      printWindow.close();
+      throw new Error("No Aadhaar documents were uploaded.");
+    }
+
+    const escapeHTML = (value: string) =>
+      value.replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char] || char);
+
+    const imagePages = await Promise.all(
+      guestsWithAadhaar.map(async ({ rsvp, guest }) => {
+        const signedUrl = await getAadhaarSignedUrl(guest.aadharPath!);
+        const response = await fetch(signedUrl);
+
+        if (!response.ok) {
+          throw new Error(`Could not retrieve Aadhaar document for ${guest.name}.`);
+        }
+
+        const blob = await response.blob();
+
+        const imageData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Could not read Aadhaar image."));
+          reader.readAsDataURL(blob);
+        });
+
+        return `
+          <section class="page">
+            <h2>${escapeHTML(rsvp.familyName)}</h2>
+            <p><strong>Guest:</strong> ${escapeHTML(guest.name)}</p>
+            <p><strong>RSVP:</strong> ${escapeHTML(rsvp.attendance)}</p>
+            <p><strong>File:</strong> ${escapeHTML(guest.aadharFileName || "Aadhaar document")}</p>
+            <img src="${imageData}" alt="Aadhaar document" />
+          </section>
+        `;
+      })
+    );
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Guest Aadhaar Documents</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #222; }
+            .page { page-break-after: always; break-after: page; padding: 10px; }
+            .page:last-child { page-break-after: auto; break-after: auto; }
+            h1 { text-align: center; }
+            img { display: block; max-width: 100%; max-height: 65vh; object-fit: contain; margin: 20px auto; }
+            @page { size: A4; margin: 15mm; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <h1>Guest Aadhaar Documents</h1>
+          ${imagePages.join("")}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+
+    await new Promise<void>((resolve) => {
+      printWindow.onload = () => resolve();
+    });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+
+    printWindow.focus();
+    printWindow.print();
+  } catch (error) {
+    printWindow.close();
+    setPasscodeError(
+      error instanceof Error ? error.message : "Aadhaar PDF preparation failed."
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   const handleDeleteEntry = async (id: string, familyName: string) => {
     if (window.confirm(`Are you sure you want to remove the RSVP entry for "${familyName}"?`)) {
       try {
