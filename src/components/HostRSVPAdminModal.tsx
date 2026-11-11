@@ -112,13 +112,17 @@ const handleDownloadAadhaarPDF = async () => {
     }
 
     const escapeHTML = (value: string) =>
-      value.replace(/[&<>"']/g, (char) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[char] || char);
+  value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+
+    return entities[char] || char;
+  });
 
     const imagePages = await Promise.all(
       guestsWithAadhaar.map(async ({ rsvp, guest }) => {
