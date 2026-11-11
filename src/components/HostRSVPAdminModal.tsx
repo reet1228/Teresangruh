@@ -221,6 +221,15 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                 <span>Download Excel Sheet (.xlsx)</span>
                 <Download className="w-3.5 h-3.5 text-[#5A4533]" />
               </button>
+              <button
+               onClick={handleDownloadAadhaarPDF}
+               className="py-2.5 px-5 rounded-full bg-gradient-to-r from-[#DFBF7E] via-[#ECC880] to-[#DFBF7E] text-[#1F140A] font-cinzel text-xs font-bold tracking-wider hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all border border-[#C29E57] flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-sm"
+               title="Print or save guest Aadhaar documents as PDF"
+>
+  <FileSpreadsheet className="w-4 h-4 text-[#8C672A]" />
+  <span>Download Aadhaar PDF</span>
+  <Download className="w-3.5 h-3.5 text-[#5A4533]" />
+</button>
             </div>
 
             {/* Quick Metrics Cards */}
