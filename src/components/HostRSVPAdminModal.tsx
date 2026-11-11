@@ -193,12 +193,22 @@ await Promise.all(
 
     printWindow.focus();
     printWindow.print();
-  } catch (error) {
-    printWindow.close();
-    setPasscodeError(
-      error instanceof Error ? error.message : "Aadhaar PDF preparation failed."
-    );
-  } finally {
+  
+} catch (error) {
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : "Aadhaar PDF preparation failed.";
+
+  printWindow.document.body.innerHTML = `
+    <h2>Aadhaar PDF Export Failed</h2>
+    <p>${errorMessage.replace(/[&<>"']/g, "")}</p>
+    <p>Please return to the admin dashboard.</p>
+  `;
+
+  setPasscodeError(errorMessage);
+} finally {
+
     setIsLoading(false);
   }
 };
