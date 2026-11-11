@@ -174,11 +174,18 @@ const handleDownloadAadhaarPDF = async () => {
 
     printWindow.document.close();
 
-    await new Promise<void>((resolve) => {
-      printWindow.onload = () => resolve();
-    });
+const images = Array.from(printWindow.document.images);
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+await Promise.all(
+  images.map((img) =>
+    img.complete
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        })
+  )
+);
 
     printWindow.focus();
     printWindow.print();
