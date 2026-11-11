@@ -94,9 +94,36 @@ export async function deleteStoredRSVP(id: string, guests: StoredGuest[]): Promi
 }
 
 export async function getAadhaarSignedUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from('guest-aadhaar').createSignedUrl(path, 60);
-  if (error) throw new Error(`Could not open Aadhaar document: ${error.message}`);
-  return data.signedUrl;
+  console.log("Testing Aadhaar storage path:", path);
+
+  const { data, error } = await supabase.storage
+    .from('guest-aadhaar')
+    .list(path.split('/')[0]);
+
+  console.log("Storage folder contents:", data);
+  console.log("Storage list error:", error);
+
+  if (error) {
+    throw new Error(`Storage check failed: ${error.message}`);
+  }
+
+  const fileName = path.split('/').pop();
+
+  const fileExists = data?.some(file => file.name === fileName);
+
+  if (!fileExists) {
+    throw new Error(`File not found in storage folder: ${fileName}`);
+  }
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('guest-aadhaar')
+    .createSignedUrl(path, 300);
+
+  if (signedError) {
+    throw new Error(`Signed URL failed: ${signedError.message}`);
+  }
+
+  return signedData.signedUrl;
 }
 
 
