@@ -42,8 +42,8 @@ export const WEDDING_DATA = {
   couple: {
     bride: "Ruchika",
     brideFullName: "Sou.Ka. Ruchika",
-    groom: "Sanyam",
-    groomFullName: "Chi. Sanyam",
+    groom: "Sanyamji",
+    groomFullName: "Chi. Sanyamji",
     hashtag: "#tereSAngRUh",
     tagline: "Together with our families, we invite you to celebrate our union",
     datesSummary: "10TH – 11TH DECEMBER 2026",
