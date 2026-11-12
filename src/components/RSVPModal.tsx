@@ -10,9 +10,13 @@ import {
   Users,
   ShieldCheck,
   Plus,
+  Loader2,
+  ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { saveRSVP } from "../utils/rsvpStorage";
+import { uploadAadharToSupabase } from "../utils/supabase";
 
 interface RSVPModalProps {
   isOpen: boolean;
@@ -24,8 +28,10 @@ interface GuestEntry {
   name: string;
   aadharFileName: string | null;
   aadharFileSize?: string;
-  aadharNumber?: string;
-  aadharFile?: File | null;
+  aadharUrl?: string | null;
+  file?: File | null;
+  isUploading?: boolean;
+  uploadError?: string | null;
 }
 
 export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
@@ -33,6 +39,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
   const [primaryPhone, setPrimaryPhone] = useState("");
   const [attendance, setAttendance] = useState<"attending" | "declining">("attending");
   const [guestCount, setGuestCount] = useState<number>(2);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dynamic guest list with individual names and Aadhaar card uploads
   const [guests, setGuests] = useState<GuestEntry[]>([
@@ -42,8 +49,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
 
   const [message, setMessage] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -73,23 +78,57 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
     });
   };
 
-  const handleAadharUpload = (index: number, file: File | null) => {
+  // Upload file immediately to Supabase Storage when selected
+  const handleAadharUpload = async (index: number, file: File | null) => {
     if (!file) return;
+
     const formattedSize =
       file.size > 1024 * 1024
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.round(file.size / 1024)} KB`;
 
+    // Set uploading state
     setGuests((prev) => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
         aadharFileName: file.name,
         aadharFileSize: formattedSize,
-        aadharFile: file,
+        file,
+        isUploading: true,
+        uploadError: null,
       };
       return updated;
     });
+
+    try {
+      const guestName = guests[index]?.name || `Guest ${index + 1}`;
+      const result = await uploadAadharToSupabase(file, guestName, familyName || "General");
+
+      setGuests((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          aadharFileName: result.fileName,
+          aadharFileSize: result.fileSize,
+          aadharUrl: result.publicUrl,
+          isUploading: false,
+          uploadError: null,
+        };
+        return updated;
+      });
+    } catch (err: any) {
+      console.error("Aadhaar upload error:", err);
+      setGuests((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          isUploading: false,
+          uploadError: "Upload failed. We will re-try on submit.",
+        };
+        return updated;
+      });
+    }
   };
 
   const handleRemoveAadhar = (index: number) => {
@@ -99,7 +138,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         ...updated[index],
         aadharFileName: null,
         aadharFileSize: undefined,
-        aadharFile: null,
+        aadharUrl: null,
+        file: null,
+        isUploading: false,
+        uploadError: null,
       };
       return updated;
     });
@@ -113,33 +155,66 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
-    setIsSaving(true);
-    setSubmitError(null);
+    setIsSubmitting(true);
+
     try {
-      await saveRSVP({
+      // Ensure all guests who attached a file have it uploaded to Supabase Storage
+      const resolvedGuests = await Promise.all(
+        guests.map(async (guest, idx) => {
+          if (guest.file && !guest.aadharUrl) {
+            try {
+              const res = await uploadAadharToSupabase(
+                guest.file,
+                guest.name || `Guest ${idx + 1}`,
+                familyName || "General"
+              );
+              return {
+                ...guest,
+                aadharUrl: res.publicUrl,
+                aadharFileName: res.fileName,
+                aadharFileSize: res.fileSize,
+              };
+            } catch (err) {
+              console.error("Error during final upload check:", err);
+              return guest;
+            }
+          }
+          return guest;
+        })
+      );
+
+      // Clean guests array to store only serializable fields
+      const sanitizedGuests = resolvedGuests.map((g) => ({
+        name: g.name.trim(),
+        aadharFileName: g.aadharFileName,
+        aadharFileSize: g.aadharFileSize,
+        aadharUrl: g.aadharUrl,
+      }));
+
+      // Save RSVP record to persistent storage and Excel database
+      saveRSVP({
         familyName: familyName.trim(),
         primaryPhone: primaryPhone.trim(),
         attendance,
         guestCount,
-        guests,
+        guests: sanitizedGuests,
         message: message.trim(),
       });
 
-    try {
-      confetti({
-        particleCount: 100,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ["#D4AF37", "#ECC880", "#C96D80", "#FFFFFF"],
-      });
-    } catch {}
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ["#D4AF37", "#ECC880", "#C96D80", "#FFFFFF"],
+        });
+      } catch {}
 
       setIsSubmitted(true);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Something went wrong while submitting your RSVP.");
+    } catch (err) {
+      console.error("Error submitting RSVP:", err);
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -149,13 +224,17 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
       .map(
         (g, idx) =>
           `  ${idx + 1}. ${g.name} ${
-            g.aadharFileName ? `(Aadhaar Card: ${g.aadharFileName})` : ""
+            g.aadharUrl
+              ? `(Aadhaar Card: ${g.aadharUrl})`
+              : g.aadharFileName
+              ? `(Aadhaar: ${g.aadharFileName})`
+              : ""
           }`
       )
       .join("\n");
 
     const text = encodeURIComponent(
-      `*Wedding RSVP — Ruchika & Sanyam (#tereSAngRUh)*\n` +
+      `*Wedding RSVP — Ruchika & Sanyamji (#tereSAngRUh)*\n` +
         `*Family Name:* ${familyName}\n` +
         (primaryPhone ? `*Contact Phone:* ${primaryPhone}\n` : "") +
         `*Attendance:* ${
@@ -172,6 +251,8 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
     window.open(`https://wa.me/919480426253?text=${text}`, "_blank");
   };
 
+  const isAnyUploading = guests.some((g) => g.isUploading);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
@@ -180,7 +261,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition-colors cursor-pointer"
           title="Close RSVP Form"
           aria-label="Close"
         >
@@ -221,7 +302,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
               </p>
               <p>
                 <span className="font-bold text-[#8C672A]">Aadhaar Cards:</span>{" "}
-                {guests.filter((g) => g.aadharFileName).length} of {guestCount} uploaded
+                {guests.filter((g) => g.aadharFileName).length} of {guestCount} uploaded &amp; secured
               </p>
             </div>
 
@@ -244,7 +325,6 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            {submitError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{submitError}</div>}
             {/* Header */}
             <div className="text-center mb-6">
               <span className="text-[10px] font-cinzel font-bold text-[#8C672A] tracking-[0.25em] uppercase block mb-1">
@@ -359,7 +439,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
                     </div>
                   </div>
 
-                  {/* SECTION 3: NAME WITH AADHAR CARD OPTION TO UPLOAD */}
+                  {/* SECTION 3: NAME WITH AADHAAR CARD OPTION TO UPLOAD */}
                   <div className="p-4 rounded-2xl bg-white border border-[#E6D7C3] shadow-xs space-y-4">
                     <div className="flex items-center justify-between border-b border-[#F0E4D4] pb-2">
                       <div>
@@ -367,7 +447,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
                           3. Guest Names &amp; Aadhaar Card Verification
                         </span>
                         <span className="text-[11px] font-sans text-stone-500">
-                          Required for Dennisons Beach Resort security &amp; room allotment
+                          Uploaded to Supabase Cloud Storage for Dennisons Resort Check-in &amp; Excel Download
                         </span>
                       </div>
                       <ShieldCheck className="w-4 h-4 text-[#8C672A] shrink-0" />
@@ -398,7 +478,14 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
 
                           {/* Aadhaar Card file upload option */}
                           <div className="flex items-center justify-between gap-2 pt-1">
-                            {guest.aadharFileName ? (
+                            {guest.isUploading ? (
+                              <div className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-[#FAF0E4] border border-[#E2CEB9] text-xs text-[#8C672A]">
+                                <Loader2 className="w-4 h-4 animate-spin text-[#8C672A]" />
+                                <span className="font-cinzel text-[11px] font-semibold">
+                                  Uploading to Cloud Storage...
+                                </span>
+                              </div>
+                            ) : guest.aadharFileName ? (
                               <div className="flex-1 flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs">
                                 <div className="flex items-center gap-2 truncate pr-2">
                                   <FileText className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -411,14 +498,27 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
                                     </span>
                                   )}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAadhar(idx)}
-                                  className="text-stone-400 hover:text-red-500 p-1"
-                                  title="Remove File"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {guest.aadharUrl && (
+                                    <a
+                                      href={guest.aadharUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100/60 transition-colors"
+                                      title="Click to preview uploaded Aadhaar"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAadhar(idx)}
+                                    className="text-stone-400 hover:text-red-500 p-1 transition-colors"
+                                    title="Remove File"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white border border-dashed border-[#C9A86A] text-[11px] font-cinzel font-semibold text-[#8C672A] hover:bg-[#FDF9F2] transition-colors cursor-pointer">
@@ -436,6 +536,13 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
                               </label>
                             )}
                           </div>
+
+                          {guest.uploadError && (
+                            <p className="text-[10px] text-amber-700 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                              <span>{guest.uploadError}</span>
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -457,7 +564,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
               {/* Wishes or note */}
               <div>
                 <label className="block text-xs font-cinzel font-bold text-[#3C2A1B] uppercase tracking-wider mb-1">
-                  Wishes &amp; Blessings for Ruchika &amp; Sanyam
+                  Wishes &amp; Blessings for Ruchika &amp; Sanyamji
                 </label>
                 <textarea
                   rows={2}
@@ -474,17 +581,32 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-full text-xs font-cinzel font-bold text-stone-600 hover:text-stone-900"
+                disabled={isSubmitting || isAnyUploading}
+                className="px-4 py-2.5 rounded-full text-xs font-cinzel font-bold text-stone-600 hover:text-stone-900 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isSaving}
-                className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#DFBF7E] via-[#ECC880] to-[#DFBF7E] text-[#1F140A] font-cinzel text-xs font-bold tracking-wider hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all border border-[#C29E57] flex items-center gap-1.5 cursor-pointer"
+                disabled={isSubmitting || isAnyUploading}
+                className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#DFBF7E] via-[#ECC880] to-[#DFBF7E] text-[#1F140A] font-cinzel text-xs font-bold tracking-wider hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all border border-[#C29E57] flex items-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed shadow-xs"
               >
-                <span>{isSaving ? "Submitting..." : "Submit RSVP"}</span>
-                <Heart className="w-3.5 h-3.5 fill-[#1F140A]" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1F140A]" />
+                    <span>Securing ID Proofs &amp; Submitting...</span>
+                  </>
+                ) : isAnyUploading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1F140A]" />
+                    <span>Uploading ID Proofs...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Submit RSVP</span>
+                    <Heart className="w-3.5 h-3.5 fill-[#1F140A]" />
+                  </>
+                )}
               </button>
             </div>
           </form>

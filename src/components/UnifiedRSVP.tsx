@@ -12,7 +12,7 @@ export const UnifiedRSVP: React.FC<UnifiedRSVPProps> = ({ id = "rsvp", onOpenRsv
 
   const handleWhatsApp = (phone: string, name: string) => {
     const text = encodeURIComponent(
-      `Namaste ${name} ji, I have received the wedding invitation of Ruchika & Sanyam (#tereSAngRUh). I am pleased to confirm our attendance to bless the couple!`
+      `Namaste ${name} ji, I have received the wedding invitation of Ruchika & Sanyamji (#tereSAngRUh). I am pleased to confirm our attendance to bless the couple!`
     );
     window.open(`https://wa.me/91${phone.replace(/\D/g, "")}?text=${text}`, "_blank");
   };

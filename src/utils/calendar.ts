@@ -1,5 +1,5 @@
 /**
- * Calendar utilities for Ruchika & Sanyam's Wedding (#tereSAngRUh)
+ * Calendar utilities for Ruchika & Sanyamji's Wedding (#tereSAngRUh)
  */
 
 export function generateGoogleCalendarUrl(
@@ -49,7 +49,7 @@ export function downloadIcsFile(
   const icsContent = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Ruchika & Sanyam Wedding//tereSAngRUh//EN",
+    "PRODID:-//Ruchika & Sanyamji Wedding//tereSAngRUh//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

@@ -11,7 +11,7 @@ export const FamilySection: React.FC<FamilySectionProps> = ({ onOpenCardModal })
 
   const handleWhatsAppRSVP = (phone: string, contactName: string) => {
     const text = encodeURIComponent(
-      `Namaste ${contactName} ji, I have received the wedding invitation of Ruchika & Sanyam (#tereSAngRUh). I am pleased to confirm our attendance to bless the couple!`
+      `Namaste ${contactName} ji, I have received the wedding invitation of Ruchika & Sanyamji (#tereSAngRUh). I am pleased to confirm our attendance to bless the couple!`
     );
     window.open(`https://wa.me/91${phone.replace(/\D/g, "")}?text=${text}`, "_blank");
   };

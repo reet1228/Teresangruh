@@ -153,7 +153,7 @@ export const CurtainEnvelope: React.FC<CurtainEnvelopeProps> = ({ isOpen, onOpen
 
           {/* Couple Names */}
           <h1 className="font-script text-4xl sm:text-5xl text-[#F9EBD7] drop-shadow-md my-2">
-            Ruchika & Sanyam
+            Ruchika & Sanyamji
           </h1>
 
           <p className="font-marcellus text-xs sm:text-sm text-stone-300 tracking-wider mb-2">

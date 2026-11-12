@@ -50,8 +50,8 @@ export const CountdownTimer: React.FC = () => {
 
   const handleAddToGoogleCalendar = () => {
     const url = generateGoogleCalendarUrl(
-      "Ruchika & Sanyam Wedding (#tereSAngRUh)",
-      `Official Wedding Celebration of Ruchika & Sanyam #tereSAngRUh.\nDates: 10th - 11th December 2026\nVenue: Dennisons Beach Resort, Kumta, Karnataka`,
+      "Ruchika & Sanyamji Wedding (#tereSAngRUh)",
+      `Official Wedding Celebration of Ruchika & Sanyamji #tereSAngRUh.\nDates: 10th - 11th December 2026\nVenue: Dennisons Beach Resort, Kumta, Karnataka`,
       "Dennisons Beach Resort, Kumta, Karnataka, India",
       "2026-12-10T15:00:00+05:30",
       "2026-12-12T04:00:00+05:30"
@@ -61,12 +61,12 @@ export const CountdownTimer: React.FC = () => {
 
   const handleDownloadIcs = () => {
     downloadIcsFile(
-      "Ruchika & Sanyam Wedding (#tereSAngRUh)",
-      "Official Wedding Celebration of Ruchika & Sanyam #tereSAngRUh at Dennisons Beach Resort, Kumta, Karnataka.",
+      "Ruchika & Sanyamji Wedding (#tereSAngRUh)",
+      "Official Wedding Celebration of Ruchika & Sanyamji #tereSAngRUh at Dennisons Beach Resort, Kumta, Karnataka.",
       "Dennisons Beach Resort, Kumta, Karnataka, India",
       "2026-12-10T15:00:00+05:30",
       "2026-12-12T04:00:00+05:30",
-      "Ruchika_Sanyam_Wedding.ics"
+      "Ruchika_Sanyamji_Wedding.ics"
     );
   };
 
@@ -103,7 +103,7 @@ export const CountdownTimer: React.FC = () => {
           <div className="p-8 max-w-md mx-auto rounded-3xl bg-white/90 border border-[#D9C4A7] shadow-xl text-center">
             <h3 className="font-script text-4xl text-[#6B1B32] mb-2">Happily Married!</h3>
             <p className="font-marcellus text-sm text-[#5C4530]">
-              Thank you for blessing Ruchika &amp; Sanyam with your love and presence.
+              Thank you for blessing Ruchika &amp; Sanyamji with your love and presence.
             </p>
           </div>
         ) : (

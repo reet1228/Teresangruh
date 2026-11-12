@@ -15,7 +15,7 @@ export const UnifiedThankYou: React.FC<UnifiedThankYouProps> = ({
 }) => {
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `Official Wedding Invitation — Ruchika & Sanyam (#tereSAngRUh)\n10th – 11th December 2026 at Dennisons Beach Resort, Kumta, Karnataka.\nView the digital invitation: ${window.location.href}`
+      `Official Wedding Invitation — Ruchika & Sanyamji (#tereSAngRUh)\n10th – 11th December 2026 at Dennisons Beach Resort, Kumta, Karnataka.\nView the digital invitation: ${window.location.href}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
@@ -67,7 +67,7 @@ export const UnifiedThankYou: React.FC<UnifiedThankYouProps> = ({
 
           <div className="my-5">
             <p className="font-script text-4xl sm:text-5xl text-[#6B1B32]">
-              With love, Ruchika &amp; Sanyam
+              With love, Ruchika &amp; Sanyamji
             </p>
             <div className="mt-2.5 inline-block px-3.5 py-1 rounded-full bg-[#FAF0E4] border border-[#E2D0B9] text-xs font-cinzel font-bold text-[#8C672A] tracking-widest">
               {WEDDING_DATA.couple.hashtag}

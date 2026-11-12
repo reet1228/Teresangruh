@@ -85,7 +85,7 @@ export const InvitationMessage: React.FC<InvitationMessageProps> = ({ onOpenCard
                 CHI.
               </span>
               <h2 className="font-script text-4xl sm:text-5xl text-[#6B1B32] drop-shadow-sm">
-                Sanyam
+                Sanyamji
               </h2>
             </div>
             <div className="text-[11px] sm:text-xs font-marcellus text-[#5C4837] tracking-wider space-y-1 mt-2">

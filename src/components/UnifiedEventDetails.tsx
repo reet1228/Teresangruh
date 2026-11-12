@@ -66,8 +66,8 @@ const CEREMONIES = [
 export const UnifiedEventDetails: React.FC<UnifiedEventDetailsProps> = ({ id = "event-details" }) => {
   const handleAddAllToCalendar = () => {
     const url = generateGoogleCalendarUrl(
-      "Ruchika & Sanyam Wedding Celebration (#tereSAngRUh)",
-      "Official Wedding Celebration of Ruchika & Sanyam at Dennisons Beach Resort, Kumta, Karnataka.\nEvents: Maayra, Sangeet, Carnival, Varmala, Reception, and Sacred Pheras.",
+      "Ruchika & Sanyamji Wedding Celebration (#tereSAngRUh)",
+      "Official Wedding Celebration of Ruchika & Sanyamji at Dennisons Beach Resort, Kumta, Karnataka.\nEvents: Maayra, Sangeet, Carnival, Varmala, Reception, and Sacred Pheras.",
       "Dennisons Beach Resort, Kumta, Karnataka 581343",
       "2026-12-10T15:00:00+05:30",
       "2026-12-12T04:00:00+05:30"
@@ -77,12 +77,12 @@ export const UnifiedEventDetails: React.FC<UnifiedEventDetailsProps> = ({ id = "
 
   const handleDownloadIcs = () => {
     downloadIcsFile(
-      "Ruchika & Sanyam Wedding (#tereSAngRUh)",
-      "Official Wedding Celebration of Ruchika & Sanyam at Dennisons Beach Resort, Kumta, Karnataka.",
+      "Ruchika & Sanyamji Wedding (#tereSAngRUh)",
+      "Official Wedding Celebration of Ruchika & Sanyamji at Dennisons Beach Resort, Kumta, Karnataka.",
       "Dennisons Beach Resort, Kumta, Karnataka 581343",
       "2026-12-10T15:00:00+05:30",
       "2026-12-12T04:00:00+05:30",
-      "Ruchika_Sanyam_Wedding.ics"
+      "Ruchika_Sanyamji_Wedding.ics"
     );
   };
 
@@ -146,7 +146,7 @@ export const UnifiedEventDetails: React.FC<UnifiedEventDetailsProps> = ({ id = "
                     onClick={() => {
                       const url = generateGoogleCalendarUrl(
                         `${ceremony.name} (${ceremony.subName})`,
-                        `Wedding celebration of Ruchika & Sanyam #tereSAngRUh at ${ceremony.venue}.`,
+                        `Wedding celebration of Ruchika & Sanyamji #tereSAngRUh at ${ceremony.venue}.`,
                         `${ceremony.venue}, Dennisons Beach Resort, Kumta, Karnataka`,
                         ceremony.isoStart,
                         ceremony.isoEnd

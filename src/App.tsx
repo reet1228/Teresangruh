@@ -27,15 +27,15 @@ const INVITATION_PAGES = [
     pageNumber: 1,
     title: "WEDDING COVER",
     imageSrc: "/assets/optimized/page_01.webp",
-    altText: "Ruchika & Sanyam Wedding Cover — #tereSAngRUh",
-    caption: "Shree Ganeshaya Namaha · Ruchika weds Sanyam · 10th – 11th December 2026",
+    altText: "Ruchika & Sanyamji Wedding Cover — #tereSAngRUh",
+    caption: "Shree Ganeshaya Namaha · Ruchika weds Sanyamji · 10th – 11th December 2026",
   },
   {
     id: "invitation",
     pageNumber: 2,
     title: "WEDDING INVITATION",
     imageSrc: "/assets/optimized/page_02.webp",
-    altText: "Sacred Invocations & Family Invitation of Ruchika and Sanyam",
+    altText: "Sacred Invocations & Family Invitation of Ruchika and Sanyamji",
     caption: "Shree Jirawala Parshwanath Namaha · Family Blessings & Sacred Invocations",
   },
   {
@@ -210,7 +210,7 @@ export default function App() {
             <span className="w-6 h-[1px] bg-[#C9A86A]/60" />
           </div>
           <h1 className="font-script text-3xl sm:text-4xl text-[#6B1B32] font-bold drop-shadow-xs">
-            Ruchika &amp; Sanyam
+            Ruchika &amp; Sanyamji
           </h1>
           <p className="text-[10px] font-cinzel text-[#4A3828] font-bold tracking-[0.2em] uppercase mt-0.5">
             #tereSAngRUh · 10th – 11th December 2026

@@ -9,7 +9,7 @@ interface ClosingSectionProps {
 export const ClosingSection: React.FC<ClosingSectionProps> = ({ onReplayInvitation }) => {
   const handleShareWhatsApp = () => {
     const shareText = encodeURIComponent(
-      `Join us in celebrating the wedding of Ruchika & Sanyam (#tereSAngRUh) on 10th - 11th December 2026 at Dennisons Beach Resort, Kumta, Karnataka!\nView the digital invitation: ${window.location.href}`
+      `Join us in celebrating the wedding of Ruchika & Sanyamji (#tereSAngRUh) on 10th - 11th December 2026 at Dennisons Beach Resort, Kumta, Karnataka!\nView the digital invitation: ${window.location.href}`
     );
     window.open(`https://api.whatsapp.com/send?text=${shareText}`, "_blank");
   };
@@ -47,7 +47,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({ onReplayInvitati
 
         <div className="my-6">
           <p className="font-script text-4xl sm:text-5xl text-[#ECC880]">
-            With love, Ruchika &amp; Sanyam
+            With love, Ruchika &amp; Sanyamji
           </p>
           <div className="mt-3 inline-block px-4 py-1 rounded-full bg-white/5 border border-[#ECC880]/30 text-xs font-cinzel font-bold text-[#ECC880] tracking-widest">
             {WEDDING_DATA.couple.hashtag}
@@ -88,7 +88,7 @@ export const ClosingSection: React.FC<ClosingSectionProps> = ({ onReplayInvitati
             <span>Celebrating with love &amp; gratitude</span>
             <Heart className="w-3 h-3 text-[#E8A598] fill-[#E8A598]" />
           </p>
-          <p>© 2026 Ruchika &amp; Sanyam · All Rights Reserved</p>
+          <p>© 2026 Ruchika &amp; Sanyamji · All Rights Reserved</p>
         </div>
       </div>
     </footer>

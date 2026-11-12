@@ -1,6 +1,6 @@
 /**
  * Wedding Information Data Store
- * Couple: Ruchika & Sanyam (#tereSAngRUh)
+ * Couple: Ruchika & Sanyamji (#tereSAngRUh)
  * Dates: 10th - 11th December 2026
  * Venue: Dennisons Beach Resort, Kumta, Karnataka
  */
@@ -93,7 +93,7 @@ export const WEDDING_DATA = {
   music: {
     src: "/assets/audio/wedding_music.mp3",
     title: "tereSAngRUh — Official Wedding Symphony",
-    artist: "Ruchika & Sanyam Wedding Celebration",
+    artist: "Ruchika & Sanyamji Wedding Celebration",
   },
 
   events: [
@@ -286,7 +286,7 @@ export const WEDDING_DATA = {
   closingMessage: {
     quote: "Two lives, two hearts, joined together in friendship, united forever in love.",
     main: "Your presence will make our celebration even more special.",
-    salutation: "With love, Ruchika & Sanyam",
+    salutation: "With love, Ruchika & Sanyamji",
     hashtag: "#tereSAngRUh",
   },
 };

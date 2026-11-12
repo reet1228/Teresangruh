@@ -50,7 +50,7 @@ export const ArtworkModal: React.FC<ArtworkModalProps> = ({
   const handleDownload = () => {
     const link = document.createElement("a");
     link.href = currentImageSrc;
-    link.download = `Ruchika_Sanyam_Wedding_Page_0${pageIndex}.webp`;
+    link.download = `Ruchika_Sanyamji_Wedding_Page_0${pageIndex}.webp`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

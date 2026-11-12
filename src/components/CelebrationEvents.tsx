@@ -216,7 +216,7 @@ export const CelebrationEvents: React.FC<CelebrationEventsProps> = ({ onOpenCard
                       <button
                         onClick={() => {
                           const url = generateGoogleCalendarUrl(
-                            `${event.title} - Ruchika & Sanyam Wedding`,
+                            `${event.title} - Ruchika & Sanyamji Wedding`,
                             `${event.title} (${event.ceremonyName}) at ${event.venue}.\n#tereSAngRUh Wedding`,
                             `${event.venue}, Dennisons Beach Resort, Kumta, Karnataka`,
                             event.isoDate,

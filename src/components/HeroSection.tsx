@@ -38,7 +38,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenCardModal }) => 
           <div className="relative w-56 h-56 sm:w-64 sm:h-64 rounded-full overflow-hidden shadow-[0_15px_35px_rgba(181,139,53,0.18)] border-4 border-[#FAF7F2] ring-2 ring-[#D4AF37]/40 transition-transform duration-500 group-hover:scale-105">
             <img
               src="/assets/illustrations/monogram_palace.jpg"
-              alt="Ruchika & Sanyam Monogram Artwork"
+              alt="Ruchika & Sanyamji Monogram Artwork"
               className="w-full h-full object-cover object-center"
               loading="eager"
             />
@@ -63,7 +63,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenCardModal }) => 
             WEDS
           </p>
           <p className="font-script text-5xl sm:text-6xl md:text-7xl text-[#6B1B32] tracking-wide leading-none drop-shadow-sm">
-            Sanyam
+            Sanyamji
           </p>
         </div>
 

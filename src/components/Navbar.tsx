@@ -47,7 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onRsvpClick }) => {
             href="#cover"
             className="text-base sm:text-lg font-cinzel font-bold tracking-wider text-[#352516] whitespace-nowrap shrink-0 hover:text-[#916E34] transition-colors"
           >
-            Ruchika &amp; Sanyam
+            Ruchika &amp; Sanyamji
           </a>
 
           {/* Zone 2: Clean single-line navigation links */}

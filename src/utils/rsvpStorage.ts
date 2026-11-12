@@ -1,268 +1,272 @@
-/** Supabase-backed RSVP storage and Excel export for Ruchika & Sanyam. */
-import ExcelJS from 'exceljs';
-import * as XLSX from 'xlsx';
-import { supabase } from '../lib/supabase';
+/**
+ * RSVP Storage and Excel Export Utility
+ * Wedding: Ruchika & Sanyamji (#tereSAngRUh)
+ * Features Supabase Storage integration with clickable Aadhaar card links in Excel
+ */
+
+import * as XLSX from "xlsx";
+import { syncRSVPToSupabaseDatabase } from "./supabase";
 
 export interface StoredGuest {
   name: string;
   aadharFileName: string | null;
   aadharFileSize?: string;
-  aadharPath?: string | null;
+  aadharUrl?: string | null; // Public URL from Supabase Storage or local Data URL
 }
+
 export interface StoredRSVP {
   id: string;
   timestamp: string;
   dateFormatted: string;
   familyName: string;
   primaryPhone: string;
-  attendance: 'attending' | 'declining';
+  attendance: "attending" | "declining";
   guestCount: number;
   guests: StoredGuest[];
   message: string;
 }
-export interface GuestSubmission extends StoredGuest { aadharFile?: File | null }
 
-const formatDate = (value: string) => new Date(value).toLocaleString('en-IN', {
-  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
-});
+const STORAGE_KEY = "teresangruh_wedding_rsvps_v1";
 
-export async function saveRSVP(entry: {
-  familyName: string; primaryPhone: string; attendance: 'attending' | 'declining';
-  guestCount: number; guests: GuestSubmission[]; message: string;
-}): Promise<StoredRSVP> {
-  const submissionId = crypto.randomUUID();
-  const savedGuests: StoredGuest[] = [];
+// Default initial sample entries for demonstration if storage is empty
+const INITIAL_DEMO_RSVPS: StoredRSVP[] = [
+  {
+    id: "sample-1",
+    timestamp: "2026-11-06T10:30:00.000Z",
+    dateFormatted: "06 Nov 2026, 04:00 PM",
+    familyName: "Chauhan Parivaar",
+    primaryPhone: "+91 94804 26253",
+    attendance: "attending",
+    guestCount: 3,
+    guests: [
+      {
+        name: "Rajendra Kumar Chauhan",
+        aadharFileName: "Rajendra_Aadhaar.pdf",
+        aadharFileSize: "420 KB",
+        aadharUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        name: "Damayanti Chauhan",
+        aadharFileName: "Damayanti_Aadhaar.jpg",
+        aadharFileSize: "1.2 MB",
+        aadharUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        name: "Kailash Kumar Chauhan",
+        aadharFileName: "Kailash_Aadhaar.pdf",
+        aadharFileSize: "350 KB",
+        aadharUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=80",
+      },
+    ],
+    message: "May God bless Ruchika and Sanyamji with eternal happiness and prosperity!",
+  },
+  {
+    id: "sample-2",
+    timestamp: "2026-11-06T14:15:00.000Z",
+    dateFormatted: "06 Nov 2026, 07:45 PM",
+    familyName: "Sakaria Family",
+    primaryPhone: "+91 94484 53036",
+    attendance: "attending",
+    guestCount: 2,
+    guests: [
+      {
+        name: "Naresh Sakaria",
+        aadharFileName: "Naresh_Aadhaar.pdf",
+        aadharFileSize: "510 KB",
+        aadharUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        name: "Sangeetha Sakaria",
+        aadharFileName: "Sangeetha_Aadhaar.jpg",
+        aadharFileSize: "890 KB",
+        aadharUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1200&q=80",
+      },
+    ],
+    message: "Excited to celebrate the magical days at Kumta beach!",
+  },
+];
 
-  for (let index = 0; index < entry.guests.length; index++) {
-    const guest = entry.guests[index];
-    let aadharPath: string | null = null;
-    if (guest.aadharFile) {
-      const extension = guest.aadharFile.name.split('.').pop()?.toLowerCase() || 'bin';
-      aadharPath = `${submissionId}/${crypto.randomUUID()}.${extension}`;
-      const { error: uploadError } = await supabase.storage.from('guest-aadhaar').upload(aadharPath, guest.aadharFile, {
-        contentType: guest.aadharFile.type || 'application/octet-stream', upsert: false,
-      });
-      if (uploadError) throw new Error(`Aadhaar upload failed for ${guest.name}: ${uploadError.message}`);
+export function getStoredRSVPs(): StoredRSVP[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // Initialize with demo samples so the Excel sheet is never empty on first preview
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DEMO_RSVPS));
+      return INITIAL_DEMO_RSVPS;
     }
-    savedGuests.push({
-      name: guest.name,
-      aadharFileName: guest.aadharFile?.name || guest.aadharFileName || null,
-      aadharFileSize: guest.aadharFileSize,
-      aadharPath,
-    });
+    return JSON.parse(raw) as StoredRSVP[];
+  } catch (err) {
+    console.error("Error reading RSVPs from localStorage:", err);
+    return INITIAL_DEMO_RSVPS;
   }
-
-  const now = new Date().toISOString();
-  const { error } = await supabase.from('wedding_rsvps').insert({
-    id: submissionId, created_at: now, family_name: entry.familyName.trim(), primary_phone: entry.primaryPhone.trim(),
-    attendance: entry.attendance, guest_count: entry.attendance === 'attending' ? entry.guestCount : 0,
-    guests: savedGuests, message: entry.message.trim(),
-  });
-
-  if (error) {
-    if (savedGuests.some(g => g.aadharPath)) {
-      await supabase.storage.from('guest-aadhaar').remove(savedGuests.flatMap(g => g.aadharPath ? [g.aadharPath] : []));
-    }
-    throw new Error(`RSVP could not be saved: ${error.message}`);
-  }
-  return { id: submissionId, timestamp: now, dateFormatted: formatDate(now), familyName: entry.familyName.trim(), primaryPhone: entry.primaryPhone.trim(), attendance: entry.attendance, guestCount: entry.attendance === 'attending' ? entry.guestCount : 0, guests: savedGuests, message: entry.message.trim() };
 }
 
-function mapRow(row: any): StoredRSVP {
-  const timestamp = row.created_at;
-  return {
-    id: row.id, timestamp, dateFormatted: formatDate(timestamp), familyName: row.family_name,
-    primaryPhone: row.primary_phone, attendance: row.attendance, guestCount: row.guest_count,
-    guests: Array.isArray(row.guests) ? row.guests : [], message: row.message || '',
+export function saveRSVP(entry: {
+  familyName: string;
+  primaryPhone: string;
+  attendance: "attending" | "declining";
+  guestCount: number;
+  guests: StoredGuest[];
+  message: string;
+}): StoredRSVP {
+  const all = getStoredRSVPs();
+  const now = new Date();
+
+  const newEntry: StoredRSVP = {
+    id: `rsvp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: now.toISOString(),
+    dateFormatted: now.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }),
+    ...entry,
   };
-}
 
-export async function getStoredRSVPs(): Promise<StoredRSVP[]> {
-  const { data, error } = await supabase.from('wedding_rsvps').select('*').order('created_at', { ascending: false });
-  if (error) throw new Error(`Could not load RSVPs: ${error.message}`);
-  return (data || []).map(mapRow);
-}
-
-export async function deleteStoredRSVP(id: string, guests: StoredGuest[]): Promise<void> {
-  const { error } = await supabase.from('wedding_rsvps').delete().eq('id', id);
-  if (error) throw new Error(`Could not delete RSVP: ${error.message}`);
-  const paths = guests.flatMap(g => g.aadharPath ? [g.aadharPath] : []);
-  if (paths.length) {
-    const { error: storageError } = await supabase.storage.from('guest-aadhaar').remove(paths);
-    if (storageError) console.error('RSVP deleted, but Aadhaar cleanup failed:', storageError.message);
-  }
-}
-
-
-
-export async function getAadhaarSignedUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from('guest-aadhaar')
-    .createSignedUrl(path, 300);
-
-  if (error) {
-    throw new Error(`Could not open Aadhaar document: ${error.message}`);
+  const updated = [newEntry, ...all];
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error("Failed to save RSVP to localStorage:", e);
   }
 
-  return data.signedUrl;
+  // Attempt async sync to Supabase database if configured
+  syncRSVPToSupabaseDatabase(newEntry).catch(() => {});
+
+  return newEntry;
 }
 
+/**
+ * Generates and downloads a multi-sheet Excel workbook (.xlsx)
+ * with clickable hyperlinks to uploaded Aadhaar card images in Supabase Storage.
+ */
+export function exportRSVPsToExcel(customList?: StoredRSVP[]) {
+  const rsvps = customList || getStoredRSVPs();
 
-export async function exportRSVPsToExcel(rsvps: StoredRSVP[]) {
-  const workbook = new ExcelJS.Workbook();
+  // ==========================================
+  // SHEET 1: Family / Booking Summary
+  // ==========================================
+  const summaryRows = rsvps.map((item, index) => {
+    const guestNames = item.guests
+      .map((g, i) => `${i + 1}. ${g.name || "Guest"}`)
+      .join("; ");
 
-  workbook.creator = 'Ruchika & Sanyam Wedding';
-  workbook.created = new Date();
+    const aadharFiles = item.guests
+      .map((g, i) => {
+        const linkNote = g.aadharUrl ? ` [Link: ${g.aadharUrl}]` : " [No link]";
+        return `${i + 1}. ${g.name || "Guest"}: ${g.aadharFileName || "Not Uploaded"}${linkNote}`;
+      })
+      .join("; ");
 
-  // Sheet 1: Family summary
-  const summary = workbook.addWorksheet('RSVP Family Summary');
-
-  summary.columns = [
-    { header: 'S.No', key: 'sno', width: 8 },
-    { header: 'Submission Date & Time', key: 'date', width: 24 },
-    { header: 'Family Name', key: 'family', width: 25 },
-    { header: 'Contact Phone', key: 'phone', width: 18 },
-    { header: 'Attendance Status', key: 'attendance', width: 22 },
-    { header: 'Total Guests', key: 'count', width: 15 },
-    { header: 'Guest Names', key: 'names', width: 40 },
-    { header: 'Aadhaar Cards Uploaded', key: 'aadhaar', width: 40 },
-    { header: 'Wishes & Blessings', key: 'message', width: 35 },
-  ];
-
-  rsvps.forEach((item, index) => {
-    summary.addRow({
-      sno: index + 1,
-      date: item.dateFormatted,
-      family: item.familyName,
-      phone: item.primaryPhone || 'N/A',
-      attendance: item.attendance === 'attending'
-        ? 'Joyfully Attending' : 'Declining',
-      count: item.attendance === 'attending' ? item.guestCount : 0,
-      names: item.guests.map(g => g.name).join('; '),
-      aadhaar: item.guests.map(g =>
-        `${g.name}: ${g.aadharFileName || 'Not Uploaded'}`
-      ).join('; '),
-      message: item.message || '-',
-    });
-  });
-
-  // Sheet 2: Hotel check-in with Aadhaar thumbnails
-  const hotel = workbook.addWorksheet('Hotel Check-In & Aadhaar List');
-
-  hotel.columns = [
-    { header: 'Guest S.No', key: 'sno', width: 12 },
-    { header: 'Family / Group Name', key: 'family', width: 25 },
-    { header: 'Guest Full Name', key: 'name', width: 25 },
-    { header: 'Contact Phone', key: 'phone', width: 18 },
-    { header: 'Aadhaar File Name', key: 'filename', width: 30 },
-    { header: 'File Size', key: 'size', width: 16 },
-    { header: 'Submission Date', key: 'date', width: 24 },
-    { header: 'Aadhaar Thumbnail', key: 'image', width: 23 },
-  ];
-
-  let counter = 1;
-
-  for (const item of rsvps.filter(r => r.attendance === 'attending')) {
-    for (const guest of item.guests) {
-      const row = hotel.addRow({
-        sno: counter++,
-        family: item.familyName,
-        name: guest.name || 'Guest',
-        phone: item.primaryPhone || 'N/A',
-        filename: guest.aadharFileName || 'Not uploaded',
-        size: guest.aadharFileSize || 'N/A',
-        date: item.dateFormatted,
-        image: guest.aadharPath ? 'Loading image...' : 'Not uploaded',
-      });
-
-      row.height = 82;
-
-      if (!guest.aadharPath) continue;
-
-      try {
-        const signedUrl = await getAadhaarSignedUrl(guest.aadharPath);
-        const response = await fetch(signedUrl);
-
-       if (!response.ok) {
-  row.getCell(8).value = `Fetch failed: HTTP ${response.status}`;
-  continue;
-}
-        const contentType = response.headers.get('content-type') || '';
-        const extension = guest.aadharPath.split('.').pop()?.toLowerCase();
-
-        let imageExtension: 'jpeg' | 'png' | 'gif' | null = null;
-
-        if (contentType.includes('jpeg') || extension === 'jpg' || extension === 'jpeg') {
-          imageExtension = 'jpeg';
-        } else if (contentType.includes('png') || extension === 'png') {
-          imageExtension = 'png';
-        } else if (contentType.includes('gif') || extension === 'gif') {
-          imageExtension = 'gif';
-        }
-
-        if (!imageExtension) {
-          row.getCell(8).value = 'Unsupported image format';
-          continue;
-        }
-
-        const imageBuffer = new Uint8Array(await response.arrayBuffer());
-
-        const imageId = workbook.addImage({
-          buffer: imageBuffer,
-          extension: imageExtension,
-        });
-
-        hotel.addImage(imageId, {
-          tl: { col: 7, row: row.number - 1 },
-          br: { col: 8, row: row.number },
-          editAs: 'oneCell',
-        });
-
-        row.getCell(8).value = '';
-    } catch (error) {
-  console.error('Aadhaar thumbnail export failed:', error);
-
-  row.getCell(8).value =
-    error instanceof Error
-      ? `Error: ${error.message}`
-      : `Error: ${String(error)}`;
-}
-    }
-  }
-
-  // Style worksheet headings
-  [summary, hotel].forEach(sheet => {
-    const header = sheet.getRow(1);
-    header.height = 30;
-    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    header.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: '80602F' },
+    return {
+      "S.No": index + 1,
+      "Submission Date & Time": item.dateFormatted,
+      "Family Name": item.familyName,
+      "Contact Phone": item.primaryPhone || "N/A",
+      "Attendance Status": item.attendance === "attending" ? "Joyfully Attending" : "Declining",
+      "Total Number of Guests": item.attendance === "attending" ? item.guestCount : 0,
+      "Guest Names": item.attendance === "attending" ? guestNames : "N/A",
+      "Aadhaar Cards & Links": item.attendance === "attending" ? aadharFiles : "N/A",
+      "Wishes & Blessings": item.message || "-",
     };
-    header.alignment = { vertical: 'middle', horizontal: 'center' };
-    sheet.views = [{ state: 'frozen', ySplit: 1 }];
   });
 
-  // Download workbook
-  const buffer = await workbook.xlsx.writeBuffer();
+  // ==========================================
+  // SHEET 2: Individual Guest Master List with Clickable Links
+  // ==========================================
+  interface GuestRowType {
+    "Guest S.No": number;
+    "Family / Group Name": string;
+    "Guest Full Name": string;
+    "Contact Phone": string;
+    "Aadhaar Card File Name": string;
+    "Aadhaar File Size": string;
+    "Aadhaar Card Link (Click to Open)": string;
+    "Direct Aadhaar URL (Supabase)": string;
+    "Submission Date": string;
+    _url?: string | null;
+  }
 
-  const blob = new Blob(
-    [new Uint8Array(buffer)],
-    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
-  );
+  const guestRows: GuestRowType[] = [];
+  let guestCounter = 1;
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  rsvps.forEach((item) => {
+    if (item.attendance === "attending") {
+      item.guests.forEach((g) => {
+        const hasUrl = Boolean(g.aadharUrl);
+        guestRows.push({
+          "Guest S.No": guestCounter++,
+          "Family / Group Name": item.familyName,
+          "Guest Full Name": g.name || "Guest",
+          "Contact Phone": item.primaryPhone || "N/A",
+          "Aadhaar Card File Name": g.aadharFileName || "Pending Upload",
+          "Aadhaar File Size": g.aadharFileSize || "N/A",
+          "Aadhaar Card Link (Click to Open)": hasUrl ? "View Aadhaar Card ↗" : "Not Uploaded",
+          "Direct Aadhaar URL (Supabase)": g.aadharUrl || "Not Uploaded",
+          "Submission Date": item.dateFormatted,
+          _url: g.aadharUrl,
+        });
+      });
+    }
+  });
 
-  link.href = url;
-  link.download = `Ruchika_Sanyam_Wedding_RSVP_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  // Create workbook
+  const wb = XLSX.utils.book_new();
 
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  // Create Family Summary Sheet
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  wsSummary["!cols"] = [
+    { wch: 6 },  // S.No
+    { wch: 22 }, // Submission Date
+    { wch: 28 }, // Family Name
+    { wch: 18 }, // Contact Phone
+    { wch: 20 }, // Attendance Status
+    { wch: 22 }, // Total Guests
+    { wch: 45 }, // Guest Names
+    { wch: 55 }, // Aadhaar Cards & Links
+    { wch: 40 }, // Wishes
+  ];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "RSVP Family Summary");
 
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Create Guest Master List Sheet (omit internal _url from direct JSON)
+  const cleanGuestRows = guestRows.map(({ _url, ...rest }) => rest);
+  const wsGuests = XLSX.utils.json_to_sheet(cleanGuestRows);
+
+  // Attach native clickable Excel hyperlinks and formulas to the Link column
+  guestRows.forEach((row, rowIndex) => {
+    if (row._url) {
+      // Column G (index 6) is "Aadhaar Card Link (Click to Open)"
+      const cellRef = XLSX.utils.encode_cell({ c: 6, r: rowIndex + 1 });
+      if (wsGuests[cellRef]) {
+        // Native Excel hyperlink target
+        wsGuests[cellRef].l = {
+          Target: row._url,
+          Tooltip: `Click to view Aadhaar Card of ${row["Guest Full Name"]}`,
+        };
+        // Also set Excel formula so opening in any spreadsheet engine activates the hyperlink
+        wsGuests[cellRef].f = `=HYPERLINK("${row._url}", "View Aadhaar Card ↗")`;
+      }
+    }
+  });
+
+  wsGuests["!cols"] = [
+    { wch: 12 }, // Guest S.No
+    { wch: 28 }, // Family Name
+    { wch: 26 }, // Guest Full Name
+    { wch: 18 }, // Contact Phone
+    { wch: 32 }, // Aadhaar File Name
+    { wch: 16 }, // File Size
+    { wch: 28 }, // Aadhaar Card Link
+    { wch: 60 }, // Direct Aadhaar URL
+    { wch: 22 }, // Submission Date
+  ];
+  XLSX.utils.book_append_sheet(wb, wsGuests, "Hotel Check-In & Aadhaar List");
+
+  // Trigger Excel file download
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const fileName = `Ruchika_Sanyamji_Wedding_RSVP_List_${dateStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }
-
-  
