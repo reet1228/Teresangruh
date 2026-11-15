@@ -11,7 +11,9 @@ export interface StoredGuest {
   name: string;
   aadharFileName: string | null;
   aadharFileSize?: string;
-  aadharUrl?: string | null; // Public URL from Supabase Storage or local Data URL
+  aadharUrl?: string | null;
+  aadharPath?: string | null;
+  aadharBucket?: string | null;
 }
 
 export interface StoredRSVP {
