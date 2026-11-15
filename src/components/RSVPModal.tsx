@@ -81,6 +81,10 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
   };
 
   // Upload file immediately to Supabase Storage when selected
+  
+// Upload file immediately to Supabase Storage when selected
+
+  // Upload file immediately to Supabase Storage when selected
   const handleAadharUpload = async (index: number, file: File | null) => {
     if (!file) return;
 
@@ -89,9 +93,9 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.round(file.size / 1024)} KB`;
 
-    // Set uploading state
     setGuests((prev) => {
       const updated = [...prev];
+
       updated[index] = {
         ...updated[index],
         aadharFileName: file.name,
@@ -100,51 +104,69 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
         isUploading: true,
         uploadError: null,
       };
+
       return updated;
     });
 
     try {
       const guestName = guests[index]?.name || `Guest ${index + 1}`;
-      const result = await uploadAadharToSupabase(file, guestName, familyName || "General");
+
+      const result = await uploadAadharToSupabase(
+        file,
+        guestName,
+        familyName || "General"
+      );
 
       setGuests((prev) => {
         const updated = [...prev];
+
         updated[index] = {
           ...updated[index],
           aadharFileName: result.fileName,
           aadharFileSize: result.fileSize,
           aadharUrl: result.publicUrl,
+          aadharPath: result.filePath,
+          aadharBucket: result.bucket,
           isUploading: false,
           uploadError: null,
         };
+
         return updated;
       });
     } catch (err: any) {
       console.error("Aadhaar upload error:", err);
+
       setGuests((prev) => {
         const updated = [...prev];
+
         updated[index] = {
           ...updated[index],
           isUploading: false,
           uploadError: "Upload failed. We will re-try on submit.",
         };
+
         return updated;
       });
     }
   };
 
+  // Remove an uploaded Aadhaar file from the guest entry
   const handleRemoveAadhar = (index: number) => {
     setGuests((prev) => {
       const updated = [...prev];
+
       updated[index] = {
         ...updated[index],
         aadharFileName: null,
         aadharFileSize: undefined,
         aadharUrl: null,
+        aadharPath: null,
+        aadharBucket: null,
         file: null,
         isUploading: false,
         uploadError: null,
       };
+
       return updated;
     });
   };
@@ -155,45 +177,53 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+ 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Ensure all guests who attached a file have it uploaded to Supabase Storage
+      // Ensure all selected Aadhaar files are uploaded and their
+      // Supabase storage details are saved.
       const resolvedGuests = await Promise.all(
         guests.map(async (guest, idx) => {
-          if (guest.file && !guest.aadharUrl) {
+          if (guest.file && !guest.aadharPath) {
             try {
               const res = await uploadAadharToSupabase(
                 guest.file,
                 guest.name || `Guest ${idx + 1}`,
                 familyName || "General"
               );
+
               return {
                 ...guest,
                 aadharUrl: res.publicUrl,
+                aadharPath: res.filePath,
+                aadharBucket: res.bucket,
                 aadharFileName: res.fileName,
                 aadharFileSize: res.fileSize,
               };
             } catch (err) {
               console.error("Error during final upload check:", err);
-              return guest;
+              throw err;
             }
           }
+
           return guest;
         })
       );
 
-      // Clean guests array to store only serializable fields
+      // Store only serializable guest details.
       const sanitizedGuests = resolvedGuests.map((g) => ({
         name: g.name.trim(),
         aadharFileName: g.aadharFileName,
         aadharFileSize: g.aadharFileSize,
         aadharUrl: g.aadharUrl,
+        aadharPath: g.aadharPath,
+        aadharBucket: g.aadharBucket,
       }));
 
-      // Save RSVP record to persistent storage and Excel database
+      // Save RSVP record.
       saveRSVP({
         familyName: familyName.trim(),
         primaryPhone: primaryPhone.trim(),
@@ -215,6 +245,7 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
       setIsSubmitted(true);
     } catch (err) {
       console.error("Error submitting RSVP:", err);
+      alert("Unable to submit RSVP. Please check the Aadhaar upload and try again.");
     } finally {
       setIsSubmitting(false);
     }
