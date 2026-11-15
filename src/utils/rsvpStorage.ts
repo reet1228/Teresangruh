@@ -105,7 +105,23 @@ export function getStoredRSVPs(): StoredRSVP[] {
     return INITIAL_DEMO_RSVPS;
   }
 }
+/**
+ * Delete an RSVP entry from local browser storage.
+ */
+export function deleteStoredRSVP(id: string): StoredRSVP[] {
+  const updated = getStoredRSVPs().filter(
+    (rsvp) => rsvp.id !== id
+  );
 
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error("Failed to delete RSVP:", error);
+    throw error;
+  }
+
+  return updated;
+}
 export function saveRSVP(entry: {
   familyName: string;
   primaryPhone: string;
