@@ -61,6 +61,7 @@ export interface UploadResult {
  * Uploads an Aadhaar card file (image or PDF) to Supabase Storage
  * Returns a working URL (signed or public) that can be clicked in the Excel sheet
  */
+
 export async function uploadAadharToSupabase(
   file: File,
   guestName: string,
@@ -73,21 +74,60 @@ export async function uploadAadharToSupabase(
 
   const client = getSupabase();
 
-  // If Supabase is not configured, convert to Base64 Data URL as local fallback
- if (!client) {
-  console.warn(
-    "Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) not found. Using local Data URL fallback."
-  );
+  // Aadhaar documents must be uploaded to Supabase.
+  // Do not silently store them as local Base64 data.
+  if (!client) {
+    throw new Error(
+      "Supabase is not configured. Aadhaar upload cannot continue."
+    );
+  }
 
-  const dataUrl = await fileToDataUrl(file);
+  try {
+    const cleanFamily = (familyName || "General")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
 
-  return {
-    publicUrl: dataUrl,
-    filePath: `local/${file.name}`,
-    bucket: "local",
-    fileName: file.name,
-    fileSize: formattedSize,
-  };
+    const cleanGuest = (guestName || "Guest")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+
+    const filePath = `${cleanFamily}/${timestamp}_${cleanGuest}_${randomSuffix}.${ext}`;
+
+    // Use the private Aadhaar bucket.
+    const targetBucket = "guest-aadhaar";
+
+    const { error: uploadError } = await client.storage
+      .from(targetBucket)
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || "application/octet-stream",
+      });
+
+    if (uploadError) {
+      throw new Error(
+        `Aadhaar upload failed: ${uploadError.message}`
+      );
+    }
+
+    // Do not generate a long-lived signed URL here.
+    // The admin preview will request a temporary URL separately.
+    return {
+      publicUrl: "",
+      filePath,
+      bucket: targetBucket,
+      fileName: file.name,
+      fileSize: formattedSize,
+    };
+  } catch (err) {
+    console.error("Aadhaar upload failed:", err);
+    throw err;
+  }
+}
 }
 
   try {
