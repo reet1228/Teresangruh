@@ -52,6 +52,7 @@ export function isSupabaseConfigured(): boolean {
 export interface UploadResult {
   publicUrl: string;
   filePath: string;
+  bucket: string;
   fileName: string;
   fileSize: string;
 }
