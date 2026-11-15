@@ -557,7 +557,9 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                               <span className="font-medium text-[#352516] truncate text-[11px]">
                                 {g.name || `Guest ${gIdx + 1}`}
                               </span>
-
+                              <span className="text-xs text-red-600">
+                                {g.aadharPath ? "PATH FOUND" : "PATH MISSING"}
+                              </span>
                               {g.aadharPath ? (
                                 <button
                                   onClick={() =>
