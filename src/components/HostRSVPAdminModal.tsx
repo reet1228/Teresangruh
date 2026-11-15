@@ -17,12 +17,12 @@ import {
 
 import {
   getStoredRSVPs,
+  fetchRSVPsFromSupabase,
   exportRSVPsToExcel,
   StoredRSVP,
   deleteStoredRSVP,
   getAadhaarSignedUrl,
 } from "../utils/rsvpStorage";
-
 import {
   getSupabase,
   isSupabaseConfigured,
@@ -58,10 +58,15 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
   const [isOpeningDocument, setIsOpeningDocument] = useState<boolean>(false);
 
   // Load RSVP records
-  const loadData = () => {
-    const list = getStoredRSVPs();
+ const loadData = async () => {
+  try {
+    const list = await fetchRSVPsFromSupabase();
     setRsvps(list);
-  };
+  } catch (error: any) {
+    console.error("Failed to load RSVPs from Supabase:", error);
+    alert(error?.message || "Unable to load RSVP records.");
+  }
+};
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {
