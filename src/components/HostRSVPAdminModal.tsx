@@ -24,34 +24,31 @@ import {
   deleteStoredRSVP,
   getAadhaarSignedUrl
 } from "../utils/rsvpStorage";
-import { isSupabaseConfigured } from "../utils/supabase";
+import {
+  getSupabase,
+  isSupabaseConfigured,
+} from "../utils/supabase";
 
 interface HostRSVPAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const HOST_PASSCODES = ["2026", "teresangruh", "#teresangruh", "1012"];
-
 export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
   isOpen,
   onClose,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [passcodeInput, setPasscodeInput] = useState<string>("");
   const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string>("");
+  const [adminPassword, setAdminPassword] = useState<string>("");
 
   const [rsvps, setRsvps] = useState<StoredRSVP[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [previewImageUrl, setPreviewImageUrl] = useState<{ url: string; title: string } | null>(null);
   const [showConfigGuide, setShowConfigGuide] = useState<boolean>(false);
 
-  // Check if previously unlocked in this session
-  useEffect(() => {
-    if (sessionStorage.getItem("host_rsvp_auth") === "true") {
-      setIsAuthenticated(true);
-    }
-  }, []);
+
 
   // Load RSVPs when modal opens or is authenticated
   useEffect(() => {
@@ -64,21 +61,68 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
     const list = getStoredRSVPs();
     setRsvps(list);
   };
+const handleClose = async () => {
+  const client = getSupabase();
 
+  try {
+    if (client) {
+      const { error } = await client.auth.signOut();
+
+      if (error) {
+        console.error("Admin sign-out error:", error);
+      }
+    }
+  } catch (error) {
+    console.error("Admin sign-out failed:", error);
+  } finally {
+    setIsAuthenticated(false);
+    setAdminEmail("");
+    setAdminPassword("");
+    setPasscodeError(null);
+    onClose();
+  }
+};
   if (!isOpen) return null;
 
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = passcodeInput.trim().toLowerCase();
-    if (HOST_PASSCODES.includes(clean)) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem("host_rsvp_auth", "true");
-      setPasscodeError(null);
-      loadData();
-    } else {
-      setPasscodeError("Invalid passcode. Please enter 2026 or #tereSAngRUh");
+  const handlePasscodeSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  setPasscodeError(null);
+
+  const client = getSupabase();
+
+  if (!client) {
+    setPasscodeError(
+      "Supabase is not configured. Please check your environment variables."
+    );
+    return;
+  }
+
+  if (!adminEmail.trim() || !adminPassword) {
+    setPasscodeError("Please enter both email and password.");
+    return;
+  }
+
+  try {
+    const { error } = await client.auth.signInWithPassword({
+      email: adminEmail.trim(),
+      password: adminPassword,
+    });
+
+    if (error) {
+      setPasscodeError(error.message);
+      return;
     }
-  };
+
+    setIsAuthenticated(true);
+    setAdminPassword("");
+    setPasscodeError(null);
+    loadData();
+  } catch (error) {
+    console.error("Admin login error:", error);
+    setPasscodeError("Unable to sign in. Please try again.");
+  }
+};
 
   const handleDownloadExcel = () => {
     exportRSVPsToExcel(rsvps);
@@ -115,12 +159,11 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="absolute inset-0" onClick={onClose} />
+      <div className="absolute inset-0"  />
 
       <div className="relative z-10 w-full max-w-2xl rounded-3xl bg-[#FAF7F2] border border-[#D9C4A7] shadow-2xl p-5 sm:p-7 max-h-[92vh] overflow-y-auto">
         {/* Close Button */}
         <button
-          onClick={onClose}
           className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition-colors cursor-pointer"
           title="Close Host Portal"
           aria-label="Close"
@@ -145,39 +188,53 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
               Enter your host passcode to manage RSVPs and download the complete Excel sheet with Aadhaar cards.
             </p>
 
-            <form onSubmit={handlePasscodeSubmit} className="space-y-4">
-              <div>
-                <input
-                  type="password"
-                  autoFocus
-                  required
-                  value={passcodeInput}
-                  onChange={(e) => {
-                    setPasscodeInput(e.target.value);
-                    setPasscodeError(null);
-                  }}
-                  placeholder="Enter passcode (e.g. 2026)"
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center font-mono text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
-                />
-                {passcodeError && (
-                  <p className="text-[11px] text-red-600 mt-1.5 flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{passcodeError}</span>
-                  </p>
-                )}
-                <p className="text-[10px] text-stone-500 mt-2 font-sans">
-                  Default Host Passcode: <span className="font-bold text-[#8C672A]">2026</span> or <span className="font-bold text-[#8C672A]">#tereSAngRUh</span>
-                </p>
-              </div>
+          <form onSubmit={handlePasscodeSubmit} className="space-y-4">
+  <div className="space-y-3">
+    {/* Admin Email */}
+    <input
+      type="email"
+      autoFocus
+      required
+      value={adminEmail}
+      onChange={(e) => {
+        setAdminEmail(e.target.value);
+        setPasscodeError(null);
+      }}
+      placeholder="Enter admin email"
+      autoComplete="username"
+      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
+    />
 
-              <button
-                type="submit"
-                className="w-full py-2.5 px-4 rounded-full bg-[#352516] text-[#FAF7F2] font-cinzel text-xs font-bold tracking-wider hover:bg-[#23180E] transition-all border border-[#5A4533] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-              >
-                <Unlock className="w-3.5 h-3.5 text-[#ECC880]" />
-                <span>Unlock Host Portal</span>
-              </button>
-            </form>
+    {/* Admin Password */}
+    <input
+      type="password"
+      required
+      value={adminPassword}
+      onChange={(e) => {
+        setAdminPassword(e.target.value);
+        setPasscodeError(null);
+      }}
+      placeholder="Enter admin password"
+      autoComplete="current-password"
+      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
+    />
+
+    {passcodeError && (
+      <p className="text-[11px] text-red-600 mt-1.5 flex items-center justify-center gap-1">
+        <AlertCircle className="w-3.5 h-3.5" />
+        <span>{passcodeError}</span>
+      </p>
+    )}
+  </div>
+
+  <button
+    type="submit"
+    className="w-full py-2.5 px-4 rounded-full bg-[#352516] text-[#FAF7F2] font-cinzel text-xs font-bold tracking-wider hover:bg-[#23180E] transition-all border border-[#5A4533] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+  >
+    <Unlock className="w-3.5 h-3.5 text-[#ECC880]" />
+    <span>Login to Host Portal</span>
+  </button>
+</form>
           </div>
         ) : (
           /* AUTHENTICATED HOST DASHBOARD */
