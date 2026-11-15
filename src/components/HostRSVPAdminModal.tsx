@@ -17,7 +17,13 @@ import {
   ExternalLink,
   HelpCircle,
 } from "lucide-react";
-import { getStoredRSVPs, exportRSVPsToExcel, StoredRSVP } from "../utils/rsvpStorage";
+import {
+  getStoredRSVPs,
+  exportRSVPsToExcel,
+  StoredRSVP,
+  deleteStoredRSVP,
+  getAadhaarSignedUrl
+} from "../utils/rsvpStorage";
 import { isSupabaseConfigured } from "../utils/supabase";
 
 interface HostRSVPAdminModalProps {
