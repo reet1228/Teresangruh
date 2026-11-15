@@ -212,6 +212,55 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
     }
   };
 
+  // Download Aadhaar using a temporary private signed URL
+  const handleDownloadAadhaar = async (
+    path: string,
+    bucket: string,
+    fileName: string
+  ) => {
+    if (!path) {
+      setDocumentError("The Aadhaar document path is missing.");
+      return;
+    }
+
+    setIsOpeningDocument(true);
+    setDocumentError(null);
+
+    try {
+      const client = getSupabase();
+
+      if (!client) {
+        throw new Error("Supabase is not configured.");
+      }
+
+      const { data, error } = await client.storage
+        .from(bucket)
+        .createSignedUrl(path, 300, {
+          download: fileName || "Aadhaar",
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.download = fileName || "Aadhaar";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+    } catch (error: any) {
+      console.error("Aadhaar download error:", error);
+
+      setDocumentError(
+        error?.message || "Unable to download Aadhaar document."
+      );
+    } finally {
+      setIsOpeningDocument(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   // Filter RSVPs
@@ -578,6 +627,21 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                                   </span>
                                   <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                                 </button>
+                              <button
+                                onClick={() =>
+                                  handleDownloadAadhaar(
+                                    g.aadharPath!,
+                                    g.aadharBucket || "guest-aadhaar",
+                                    g.aadharFileName || `Aadhaar - ${g.name || "Guest"}`
+                                  )
+                                }
+                                disabled={isOpeningDocument}
+                                className="inline-flex items-center gap-1 text-[10px] text-blue-800 bg-blue-100 hover:bg-blue-200 px-2 py-0.5 rounded border border-blue-300 font-semibold transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                                title="Download private Aadhaar document"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Download</span>
+                              </button>
                               ) : g.aadharFileName ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200 shrink-0">
                                   <ShieldCheck className="w-3 h-3 text-stone-500" />
