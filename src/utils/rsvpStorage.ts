@@ -234,6 +234,19 @@ export function exportRSVPsToExcel(customList?: StoredRSVP[]) {
   // Create Guest Master List Sheet (omit internal _url from direct JSON)
   const cleanGuestRows = guestRows.map(({ _url, ...rest }) => rest);
   const wsGuests = XLSX.utils.json_to_sheet(cleanGuestRows);
+   
+/** Generate a temporary private URL for an Aadhaar document. */
+export async function getAadhaarSignedUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('guest-aadhaar')
+    .createSignedUrl(path, 300);
+
+  if (error) {
+    throw new Error(`Could not open Aadhaar document: ${error.message}`);
+  }
+
+  return data.signedUrl;
+}
 
   // Attach native clickable Excel hyperlinks and formulas to the Link column
   guestRows.forEach((row, rowIndex) => {
