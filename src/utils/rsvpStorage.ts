@@ -177,8 +177,15 @@ export function exportRSVPsToExcel(customList?: StoredRSVP[]) {
 
     const aadharFiles = item.guests
       .map((g, i) => {
-        const linkNote = g.aadharUrl ? ` [Link: ${g.aadharUrl}]` : " [No link]";
-        return `${i + 1}. ${g.name || "Guest"}: ${g.aadharFileName || "Not Uploaded"}${linkNote}`;
+        const status = g.aadharPath
+          ? "Uploaded securely"
+          : g.aadharFileName
+            ? "File details available"
+            : "Not Uploaded";
+
+        return `${i + 1}. ${g.name || "Guest"}: ${
+          g.aadharFileName || "Not Uploaded"
+        } (${status})`;
       })
       .join("; ");
 
@@ -187,112 +194,113 @@ export function exportRSVPsToExcel(customList?: StoredRSVP[]) {
       "Submission Date & Time": item.dateFormatted,
       "Family Name": item.familyName,
       "Contact Phone": item.primaryPhone || "N/A",
-      "Attendance Status": item.attendance === "attending" ? "Joyfully Attending" : "Declining",
-      "Total Number of Guests": item.attendance === "attending" ? item.guestCount : 0,
-      "Guest Names": item.attendance === "attending" ? guestNames : "N/A",
-      "Aadhaar Cards & Links": item.attendance === "attending" ? aadharFiles : "N/A",
+      "Attendance Status":
+        item.attendance === "attending"
+          ? "Joyfully Attending"
+          : "Declining",
+      "Total Number of Guests":
+        item.attendance === "attending" ? item.guestCount : 0,
+      "Guest Names":
+        item.attendance === "attending" ? guestNames : "N/A",
+      "Aadhaar File Details":
+        item.attendance === "attending" ? aadharFiles : "N/A",
       "Wishes & Blessings": item.message || "-",
     };
   });
 
   // ==========================================
-  // SHEET 2: Individual Guest Master List with Clickable Links
+  // SHEET 2: Individual Guest Master List
   // ==========================================
-  interface GuestRowType {
+  const guestRows: {
     "Guest S.No": number;
     "Family / Group Name": string;
     "Guest Full Name": string;
     "Contact Phone": string;
     "Aadhaar Card File Name": string;
     "Aadhaar File Size": string;
-    "Aadhaar Card Link (Click to Open)": string;
-    "Direct Aadhaar URL (Supabase)": string;
+    "Aadhaar Upload Status": string;
     "Submission Date": string;
-    _url?: string | null;
-  }
+  }[] = [];
 
-  const guestRows: GuestRowType[] = [];
   let guestCounter = 1;
 
   rsvps.forEach((item) => {
     if (item.attendance === "attending") {
       item.guests.forEach((g) => {
-        const hasUrl = Boolean(g.aadharUrl);
         guestRows.push({
           "Guest S.No": guestCounter++,
           "Family / Group Name": item.familyName,
           "Guest Full Name": g.name || "Guest",
           "Contact Phone": item.primaryPhone || "N/A",
-          "Aadhaar Card File Name": g.aadharFileName || "Pending Upload",
+          "Aadhaar Card File Name":
+            g.aadharFileName || "Pending Upload",
           "Aadhaar File Size": g.aadharFileSize || "N/A",
-          "Aadhaar Card Link (Click to Open)": hasUrl ? "View Aadhaar Card ↗" : "Not Uploaded",
-          "Direct Aadhaar URL (Supabase)": g.aadharUrl || "Not Uploaded",
+          "Aadhaar Upload Status": g.aadharPath
+            ? "Uploaded - Private Storage"
+            : "Not Uploaded / Path Unavailable",
           "Submission Date": item.dateFormatted,
-          _url: g.aadharUrl,
         });
       });
     }
   });
 
-  // Create workbook
+  // ==========================================
+  // CREATE EXCEL WORKBOOK
+  // ==========================================
   const wb = XLSX.utils.book_new();
 
-  // Create Family Summary Sheet
+  // Sheet 1: Family Summary
   const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+
   wsSummary["!cols"] = [
-    { wch: 6 },  // S.No
-    { wch: 22 }, // Submission Date
-    { wch: 28 }, // Family Name
-    { wch: 18 }, // Contact Phone
-    { wch: 20 }, // Attendance Status
-    { wch: 22 }, // Total Guests
-    { wch: 45 }, // Guest Names
-    { wch: 55 }, // Aadhaar Cards & Links
-    { wch: 40 }, // Wishes
+    { wch: 8 },
+    { wch: 24 },
+    { wch: 28 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 22 },
+    { wch: 45 },
+    { wch: 55 },
+    { wch: 40 },
   ];
-  XLSX.utils.book_append_sheet(wb, wsSummary, "RSVP Family Summary");
 
-  // Create Guest Master List Sheet (omit internal _url from direct JSON)
-  const cleanGuestRows = guestRows.map(({ _url, ...rest }) => rest);
-  const wsGuests = XLSX.utils.json_to_sheet(cleanGuestRows);
-   
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsSummary,
+    "RSVP Family Summary"
+  );
 
-
-  // Attach native clickable Excel hyperlinks and formulas to the Link column
-  guestRows.forEach((row, rowIndex) => {
-    if (row._url) {
-      // Column G (index 6) is "Aadhaar Card Link (Click to Open)"
-      const cellRef = XLSX.utils.encode_cell({ c: 6, r: rowIndex + 1 });
-      if (wsGuests[cellRef]) {
-        // Native Excel hyperlink target
-        wsGuests[cellRef].l = {
-          Target: row._url,
-          Tooltip: `Click to view Aadhaar Card of ${row["Guest Full Name"]}`,
-        };
-        // Also set Excel formula so opening in any spreadsheet engine activates the hyperlink
-        wsGuests[cellRef].f = `=HYPERLINK("${row._url}", "View Aadhaar Card ↗")`;
-      }
-    }
-  });
+  // Sheet 2: Individual Guest List
+  const wsGuests = XLSX.utils.json_to_sheet(guestRows);
 
   wsGuests["!cols"] = [
-    { wch: 12 }, // Guest S.No
-    { wch: 28 }, // Family Name
-    { wch: 26 }, // Guest Full Name
-    { wch: 18 }, // Contact Phone
-    { wch: 32 }, // Aadhaar File Name
-    { wch: 16 }, // File Size
-    { wch: 28 }, // Aadhaar Card Link
-    { wch: 60 }, // Direct Aadhaar URL
-    { wch: 22 }, // Submission Date
+    { wch: 12 },
+    { wch: 28 },
+    { wch: 26 },
+    { wch: 18 },
+    { wch: 32 },
+    { wch: 16 },
+    { wch: 32 },
+    { wch: 22 },
   ];
-  XLSX.utils.book_append_sheet(wb, wsGuests, "Hotel Check-In & Aadhaar List");
 
-  // Trigger Excel file download
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsGuests,
+    "Hotel Check-In & Aadhaar List"
+  );
+
+  // ==========================================
+  // DOWNLOAD EXCEL FILE
+  // ==========================================
   const dateStr = new Date().toISOString().slice(0, 10);
-  const fileName = `Ruchika_Sanyamji_Wedding_RSVP_List_${dateStr}.xlsx`;
+
+  const fileName =
+    `Ruchika_Sanyamji_Wedding_RSVP_List_${dateStr}.xlsx`;
+
   XLSX.writeFile(wb, fileName);
 }
+
 /**
  * Generate a temporary private URL for an Aadhaar document.
  * Requires an authenticated admin session and Storage read permission.
