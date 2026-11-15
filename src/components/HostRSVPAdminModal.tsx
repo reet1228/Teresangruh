@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -5,25 +6,23 @@ import {
   Unlock,
   FileSpreadsheet,
   Download,
-  Users,
-  ShieldCheck,
   Search,
   Trash2,
-  CheckCircle2,
-  Heart,
+  ShieldCheck,
   RefreshCw,
   Eye,
   AlertCircle,
   ExternalLink,
-  HelpCircle,
 } from "lucide-react";
+
 import {
   getStoredRSVPs,
   exportRSVPsToExcel,
   StoredRSVP,
   deleteStoredRSVP,
-  getAadhaarSignedUrl
+  getAadhaarSignedUrl,
 } from "../utils/rsvpStorage";
+
 import {
   getSupabase,
   isSupabaseConfigured,
@@ -38,110 +37,194 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  // Authentication
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [passcodeError, setPasscodeError] = useState<string | null>(null);
   const [adminEmail, setAdminEmail] = useState<string>("");
   const [adminPassword, setAdminPassword] = useState<string>("");
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
 
+  // Dashboard data
   const [rsvps, setRsvps] = useState<StoredRSVP[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [previewImageUrl, setPreviewImageUrl] = useState<{ url: string; title: string } | null>(null);
   const [showConfigGuide, setShowConfigGuide] = useState<boolean>(false);
 
+  // Aadhaar preview
+  const [previewImageUrl, setPreviewImageUrl] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [isOpeningDocument, setIsOpeningDocument] = useState<boolean>(false);
 
-  // Load RSVPs when modal opens or is authenticated
+  // Load RSVP records
+  const loadData = () => {
+    const list = getStoredRSVPs();
+    setRsvps(list);
+  };
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadData();
     }
   }, [isOpen, isAuthenticated]);
 
-  const loadData = () => {
-    const list = getStoredRSVPs();
-    setRsvps(list);
-  };
-const handleClose = async () => {
-  const client = getSupabase();
+  // Supabase sign out
+  const signOutAdmin = async () => {
+    const client = getSupabase();
 
-  try {
-    if (client) {
-      const { error } = await client.auth.signOut();
+    try {
+      if (client) {
+        const { error } = await client.auth.signOut();
 
-      if (error) {
-        console.error("Admin sign-out error:", error);
+        if (error) {
+          console.error("Admin sign-out error:", error);
+        }
       }
+    } catch (error) {
+      console.error("Admin sign-out failed:", error);
+    } finally {
+      setIsAuthenticated(false);
+      setAdminEmail("");
+      setAdminPassword("");
+      setPasscodeError(null);
+      setPreviewImageUrl(null);
+      setDocumentError(null);
     }
-  } catch (error) {
-    console.error("Admin sign-out failed:", error);
-  } finally {
-    setIsAuthenticated(false);
-    setAdminEmail("");
-    setAdminPassword("");
-    setPasscodeError(null);
+  };
+
+  // Close portal and sign out
+  const handleClose = async () => {
+    await signOutAdmin();
     onClose();
-  }
-};
-  if (!isOpen) return null;
+  };
 
-  const handlePasscodeSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // Lock portal without closing the modal
+  const handleLockPortal = async () => {
+    await signOutAdmin();
+  };
 
-  setPasscodeError(null);
+  // Admin email and password login
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const client = getSupabase();
+    setPasscodeError(null);
 
-  if (!client) {
-    setPasscodeError(
-      "Supabase is not configured. Please check your environment variables."
-    );
-    return;
-  }
+    const client = getSupabase();
 
-  if (!adminEmail.trim() || !adminPassword) {
-    setPasscodeError("Please enter both email and password.");
-    return;
-  }
-
-  try {
-    const { error } = await client.auth.signInWithPassword({
-      email: adminEmail.trim(),
-      password: adminPassword,
-    });
-
-    if (error) {
-      setPasscodeError(error.message);
+    if (!client) {
+      setPasscodeError(
+        "Supabase is not configured. Please check your environment variables."
+      );
       return;
     }
 
-    setIsAuthenticated(true);
-    setAdminPassword("");
-    setPasscodeError(null);
-    loadData();
-  } catch (error) {
-    console.error("Admin login error:", error);
-    setPasscodeError("Unable to sign in. Please try again.");
-  }
-};
+    if (!adminEmail.trim() || !adminPassword) {
+      setPasscodeError("Please enter both email and password.");
+      return;
+    }
 
-  const handleDownloadExcel = () => {
-    exportRSVPsToExcel(rsvps);
-  };
+    try {
+      const { error } = await client.auth.signInWithPassword({
+        email: adminEmail.trim(),
+        password: adminPassword,
+      });
 
-  const handleDeleteEntry = (id: string, familyName: string) => {
-    if (window.confirm(`Are you sure you want to remove the RSVP entry for "${familyName}"?`)) {
-      const updated = rsvps.filter((r) => r.id !== id);
-      localStorage.setItem("teresangruh_wedding_rsvps_v1", JSON.stringify(updated));
-      setRsvps(updated);
+      if (error) {
+        setPasscodeError(error.message);
+        return;
+      }
+
+      setIsAuthenticated(true);
+      setAdminPassword("");
+      setPasscodeError(null);
+      loadData();
+    } catch (error) {
+      console.error("Admin login error:", error);
+      setPasscodeError("Unable to sign in. Please try again.");
     }
   };
 
-  // Filtered RSVPs
+  // Download RSVP Excel file
+  const handleDownloadExcel = () => {
+    try {
+      exportRSVPsToExcel(rsvps);
+    } catch (error) {
+      console.error("Excel export error:", error);
+      alert("Unable to download the Excel file. Please try again.");
+    }
+  };
+
+  // Delete RSVP entry
+  const handleDeleteEntry = async (id: string, familyName: string) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to remove the RSVP entry for "${familyName}"?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const updated = deleteStoredRSVP(id);
+      setRsvps(updated);
+    } catch (error) {
+      console.error("RSVP deletion error:", error);
+      alert("Unable to delete this RSVP entry. Please try again.");
+    }
+  };
+
+  // Open Aadhaar using a temporary private signed URL
+  const handleOpenAadhaar = async (
+    path: string,
+    bucket: string,
+    title: string
+  ) => {
+    if (!path) {
+      setDocumentError("The Aadhaar document path is missing.");
+      return;
+    }
+
+    setIsOpeningDocument(true);
+    setDocumentError(null);
+    setPreviewImageUrl(null);
+
+    try {
+      const signedUrl = await getAadhaarSignedUrl(path, bucket);
+
+      setPreviewImageUrl({
+        url: signedUrl,
+        title,
+      });
+    } catch (error: any) {
+      console.error("Aadhaar preview error:", error);
+
+      setDocumentError(
+        error?.message || "Unable to open the Aadhaar document."
+      );
+    } finally {
+      setIsOpeningDocument(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // Filter RSVPs
   const filteredRsvps = rsvps.filter((item) => {
     const term = searchTerm.toLowerCase();
-    const matchFamily = item.familyName.toLowerCase().includes(term);
-    const matchPhone = item.primaryPhone.toLowerCase().includes(term);
-    const matchGuests = item.guests.some((g) => g.name.toLowerCase().includes(term));
+
+    const matchFamily = (item.familyName || "")
+      .toLowerCase()
+      .includes(term);
+
+    const matchPhone = (item.primaryPhone || "")
+      .toLowerCase()
+      .includes(term);
+
+    const matchGuests = (item.guests || []).some((g) =>
+      (g.name || "").toLowerCase().includes(term)
+    );
+
     return matchFamily || matchPhone || matchGuests;
   });
 
@@ -151,7 +234,9 @@ const handleClose = async () => {
     .reduce((sum, r) => sum + r.guestCount, 0);
 
   const totalAadhaarUploaded = rsvps.reduce(
-    (sum, r) => sum + r.guests.filter((g) => g.aadharFileName || g.aadharUrl).length,
+    (sum, r) =>
+      sum +
+      r.guests.filter((g) => g.aadharFileName || g.aadharPath).length,
     0
   );
 
@@ -159,11 +244,18 @@ const handleClose = async () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="absolute inset-0"  />
+
+      {/* Background close */}
+      <div
+        className="absolute inset-0"
+        onClick={handleClose}
+      />
 
       <div className="relative z-10 w-full max-w-2xl rounded-3xl bg-[#FAF7F2] border border-[#D9C4A7] shadow-2xl p-5 sm:p-7 max-h-[92vh] overflow-y-auto">
-        {/* Close Button */}
+
+        {/* Close button */}
         <button
+          onClick={handleClose}
           className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition-colors cursor-pointer"
           title="Close Host Portal"
           aria-label="Close"
@@ -172,8 +264,9 @@ const handleClose = async () => {
         </button>
 
         {!isAuthenticated ? (
-          /* PASSCODE AUTHENTICATION SCREEN */
+          /* ADMIN LOGIN SCREEN */
           <div className="py-8 text-center max-w-sm mx-auto">
+
             <div className="w-14 h-14 rounded-full mx-auto mb-4 bg-[#FAF0E4] border border-[#DECDB8] flex items-center justify-center text-[#8C672A] shadow-xs">
               <Lock className="w-6 h-6" />
             </div>
@@ -181,71 +274,82 @@ const handleClose = async () => {
             <span className="text-[10px] font-cinzel font-bold text-[#8C672A] tracking-[0.25em] uppercase block mb-1">
               HOST &amp; ORGANIZER ACCESS
             </span>
+
             <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-[#352516] mb-2">
               Private RSVP Portal
             </h3>
+
             <p className="font-marcellus text-xs text-stone-600 mb-6">
-              Enter your host passcode to manage RSVPs and download the complete Excel sheet with Aadhaar cards.
+              Sign in with your authorized administrator email and password
+              to manage RSVPs and download the complete Excel sheet.
             </p>
 
-          <form onSubmit={handlePasscodeSubmit} className="space-y-4">
-  <div className="space-y-3">
-    {/* Admin Email */}
-    <input
-      type="email"
-      autoFocus
-      required
-      value={adminEmail}
-      onChange={(e) => {
-        setAdminEmail(e.target.value);
-        setPasscodeError(null);
-      }}
-      placeholder="Enter admin email"
-      autoComplete="username"
-      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
-    />
+            <form
+              onSubmit={handleAdminLogin}
+              className="space-y-4"
+            >
+              <div className="space-y-3">
 
-    {/* Admin Password */}
-    <input
-      type="password"
-      required
-      value={adminPassword}
-      onChange={(e) => {
-        setAdminPassword(e.target.value);
-        setPasscodeError(null);
-      }}
-      placeholder="Enter admin password"
-      autoComplete="current-password"
-      className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
-    />
+                {/* Email */}
+                <input
+                  type="email"
+                  autoFocus
+                  required
+                  value={adminEmail}
+                  onChange={(e) => {
+                    setAdminEmail(e.target.value);
+                    setPasscodeError(null);
+                  }}
+                  placeholder="Enter admin email"
+                  autoComplete="username"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
+                />
 
-    {passcodeError && (
-      <p className="text-[11px] text-red-600 mt-1.5 flex items-center justify-center gap-1">
-        <AlertCircle className="w-3.5 h-3.5" />
-        <span>{passcodeError}</span>
-      </p>
-    )}
-  </div>
+                {/* Password */}
+                <input
+                  type="password"
+                  required
+                  value={adminPassword}
+                  onChange={(e) => {
+                    setAdminPassword(e.target.value);
+                    setPasscodeError(null);
+                  }}
+                  placeholder="Enter admin password"
+                  autoComplete="current-password"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#D9C4A7] text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A86A]"
+                />
 
-  <button
-    type="submit"
-    className="w-full py-2.5 px-4 rounded-full bg-[#352516] text-[#FAF7F2] font-cinzel text-xs font-bold tracking-wider hover:bg-[#23180E] transition-all border border-[#5A4533] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-  >
-    <Unlock className="w-3.5 h-3.5 text-[#ECC880]" />
-    <span>Login to Host Portal</span>
-  </button>
-</form>
+                {passcodeError && (
+                  <p className="text-[11px] text-red-600 mt-1.5 flex items-center justify-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{passcodeError}</span>
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 px-4 rounded-full bg-[#352516] text-[#FAF7F2] font-cinzel text-xs font-bold tracking-wider hover:bg-[#23180E] transition-all border border-[#5A4533] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <Unlock className="w-3.5 h-3.5 text-[#ECC880]" />
+                <span>Login to Host Portal</span>
+              </button>
+            </form>
           </div>
         ) : (
-          /* AUTHENTICATED HOST DASHBOARD */
+          /* AUTHENTICATED ADMIN DASHBOARD */
           <div>
-            {/* Header */}
+
+            {/* Dashboard header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#EADBCE] pb-4 mb-5">
+
               <div>
                 <div className="flex flex-wrap items-center gap-2">
+
                   <span className="text-[10px] font-cinzel font-bold text-[#8C672A] tracking-[0.2em] uppercase">
                     CONFIDENTIAL HOST PORTAL
                   </span>
+
                   {supabaseReady ? (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
@@ -253,28 +357,31 @@ const handleClose = async () => {
                     </span>
                   ) : (
                     <button
-                      onClick={() => setShowConfigGuide(!showConfigGuide)}
+                      onClick={() =>
+                        setShowConfigGuide(!showConfigGuide)
+                      }
                       className="px-2 py-0.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Click to view Supabase setup instructions for Vercel"
                     >
                       <AlertCircle className="w-3 h-3 text-amber-600" />
                       Configure Supabase in Vercel
                     </button>
                   )}
                 </div>
+
                 <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-[#352516] mt-0.5">
                   Ruchika &amp; Sanyamji Wedding RSVPs
                 </h3>
+
                 <p className="font-marcellus text-xs text-stone-600">
                   Private database of family submissions &amp; hotel room allotment
                 </p>
               </div>
 
-              {/* DOWNLOAD EXCEL BUTTON */}
+              {/* Download Excel */}
               <button
                 onClick={handleDownloadExcel}
                 className="py-2.5 px-5 rounded-full bg-gradient-to-r from-[#DFBF7E] via-[#ECC880] to-[#DFBF7E] text-[#1F140A] font-cinzel text-xs font-bold tracking-wider hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all border border-[#C29E57] flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-sm"
-                title="Download complete RSVP list in Excel (.xlsx) format with clickable Aadhaar links"
+                title="Download RSVP Excel file"
               >
                 <FileSpreadsheet className="w-4 h-4 text-[#8C672A]" />
                 <span>Download Excel Sheet (.xlsx)</span>
@@ -282,27 +389,45 @@ const handleClose = async () => {
               </button>
             </div>
 
-            {/* Supabase Guide Banner if toggled */}
+            {/* Supabase setup guide */}
             {showConfigGuide && (
               <div className="p-3.5 mb-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5">
+
                 <div className="flex items-center justify-between font-bold">
-                  <span>How to connect your Supabase Storage on Vercel:</span>
-                  <button onClick={() => setShowConfigGuide(false)} className="text-amber-800 hover:text-black">
+                  <span>Supabase configuration:</span>
+
+                  <button
+                    onClick={() => setShowConfigGuide(false)}
+                    className="text-amber-800 hover:text-black"
+                  >
                     ✕
                   </button>
                 </div>
+
                 <ol className="list-decimal pl-4 space-y-1 text-[11px]">
-                  <li>In Supabase Dashboard, go to <strong>Storage</strong> and create a bucket named <code>aadhar-cards</code> (check <strong>Public Bucket</strong>).</li>
-                  <li>In Vercel, open your project <strong>Settings</strong> &gt; <strong>Environment Variables</strong>.</li>
-                  <li>Add: <code>VITE_SUPABASE_URL</code> (e.g. <code>https://xyz.supabase.co</code>)</li>
-                  <li>Add: <code>VITE_SUPABASE_ANON_KEY</code> (your Supabase anon/public API key)</li>
-                  <li>Redeploy on Vercel. Now every uploaded Aadhaar gets a permanent web link embedded in your Excel file!</li>
+                  <li>
+                    Use the existing private <strong>guest-aadhaar</strong> bucket.
+                    Do not make this bucket public.
+                  </li>
+                  <li>
+                    In Vercel, open your project Settings and Environment Variables.
+                  </li>
+                  <li>
+                    Check <code>VITE_SUPABASE_URL</code>.
+                  </li>
+                  <li>
+                    Check <code>VITE_SUPABASE_ANON_KEY</code>.
+                  </li>
+                  <li>
+                    Redeploy after changing environment variables.
+                  </li>
                 </ol>
               </div>
             )}
 
-            {/* Quick Metrics Cards */}
+            {/* Metrics */}
             <div className="grid grid-cols-3 gap-2.5 mb-4 text-center">
+
               <div className="p-3 rounded-2xl bg-white border border-[#EADBCE] shadow-xs">
                 <span className="text-[10px] font-cinzel text-stone-500 uppercase tracking-wider block">
                   Family Groups
@@ -331,10 +456,12 @@ const handleClose = async () => {
               </div>
             </div>
 
-            {/* Search and Refresh Bar */}
+            {/* Search and refresh */}
             <div className="flex items-center gap-2 mb-3">
+
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+
                 <input
                   type="text"
                   value={searchTerm}
@@ -343,6 +470,7 @@ const handleClose = async () => {
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-white border border-[#D9C4A7] text-xs focus:outline-none focus:ring-1 focus:ring-[#C9A86A]"
                 />
               </div>
+
               <button
                 onClick={loadData}
                 className="p-2 rounded-xl bg-white border border-[#D9C4A7] text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
@@ -352,8 +480,9 @@ const handleClose = async () => {
               </button>
             </div>
 
-            {/* RSVP Entries List */}
+            {/* RSVP entries */}
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+
               {filteredRsvps.length === 0 ? (
                 <div className="py-8 text-center text-stone-500 text-xs">
                   No RSVP records match your search.
@@ -365,11 +494,14 @@ const handleClose = async () => {
                     className="p-3.5 rounded-2xl bg-white border border-[#EADBCE] hover:border-[#C9A86A] transition-all shadow-xs"
                   >
                     <div className="flex items-start justify-between gap-3">
+
                       <div>
                         <div className="flex items-center gap-2">
+
                           <span className="font-cinzel text-sm font-bold text-[#352516]">
                             {idx + 1}. {item.familyName}
                           </span>
+
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-cinzel font-bold ${
                               item.attendance === "attending"
@@ -391,24 +523,27 @@ const handleClose = async () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => handleDeleteEntry(item.id, item.familyName)}
-                          className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                          title="Delete entry"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() =>
+                          handleDeleteEntry(item.id, item.familyName)
+                        }
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Delete entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    {/* Guests List with Aadhaar status & clickable preview */}
+                    {/* Guests and Aadhaar documents */}
                     {item.guests && item.guests.length > 0 && (
                       <div className="mt-2.5 pt-2 border-t border-[#F2E8DC] text-[11px] space-y-1">
+
                         <span className="text-[10px] font-cinzel font-bold text-[#8C672A] block uppercase">
                           Guests &amp; ID Proofs:
                         </span>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+
                           {item.guests.map((g, gIdx) => (
                             <div
                               key={gIdx}
@@ -417,25 +552,38 @@ const handleClose = async () => {
                               <span className="font-medium text-[#352516] truncate text-[11px]">
                                 {g.name || `Guest ${gIdx + 1}`}
                               </span>
-                              {g.aadharUrl ? (
-                                <a
-                                  href={g.aadharUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded border border-emerald-300 font-semibold transition-colors shrink-0 cursor-pointer shadow-2xs"
-                                  title="Click to view Aadhaar Card"
+
+                              {g.aadharPath ? (
+                                <button
+                                  onClick={() =>
+                                    handleOpenAadhaar(
+                                      g.aadharPath!,
+                                      g.aadharBucket || "guest-aadhaar",
+                                      g.aadharFileName ||
+                                        `Aadhaar - ${g.name || "Guest"}`
+                                    )
+                                  }
+                                  disabled={isOpeningDocument}
+                                  className="inline-flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded border border-emerald-300 font-semibold transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                                  title="Open private Aadhaar document"
                                 >
-                                  <Eye className="w-3 h-3 text-emerald-700" />
-                                  <span className="truncate max-w-[85px]">{g.aadharFileName || "View Card"}</span>
+                                  <Eye className="w-3 h-3" />
+                                  <span className="truncate max-w-[85px]">
+                                    {g.aadharFileName || "View Card"}
+                                  </span>
                                   <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                                </a>
+                                </button>
                               ) : g.aadharFileName ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200 shrink-0">
                                   <ShieldCheck className="w-3 h-3 text-stone-500" />
-                                  <span className="truncate max-w-[85px]">{g.aadharFileName}</span>
+                                  <span className="truncate max-w-[120px]">
+                                    {g.aadharFileName} — secure path unavailable
+                                  </span>
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-stone-400 italic">No Aadhaar</span>
+                                <span className="text-[10px] text-stone-400 italic">
+                                  No Aadhaar
+                                </span>
                               )}
                             </div>
                           ))}
@@ -453,29 +601,39 @@ const handleClose = async () => {
               )}
             </div>
 
-            {/* Note on Excel clickable links */}
+            {/* Document error */}
+            {documentError && (
+              <div className="mt-3 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                {documentError}
+              </div>
+            )}
+
+            {/* Excel information */}
             <div className="mt-3 p-2.5 rounded-xl bg-[#FAF0E4] border border-[#E8DAC8] text-[11px] text-[#5A4533] flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-[#8C672A] shrink-0" />
               <span>
-                <strong>Excel Feature:</strong> Sheet 2 of the downloaded Excel file contains direct clickable links (<code>=HYPERLINK</code>) and web URLs to view every guest's Aadhaar card.
+                <strong>Excel Feature:</strong> Download the RSVP family
+                summary and guest master list. Private Aadhaar access is
+                handled separately through temporary signed links.
               </span>
             </div>
 
-            {/* Footer with Excel info & lock out */}
+            {/* Footer */}
             <div className="mt-4 pt-3 border-t border-[#EADBCE] flex items-center justify-between text-xs">
+
               <span className="text-[11px] text-stone-500 font-sans">
                 🔒 Only accessible with host credentials
               </span>
+
               <div className="flex items-center gap-2">
+
                 <button
-                  onClick={() => {
-                    sessionStorage.removeItem("host_rsvp_auth");
-                    setIsAuthenticated(false);
-                  }}
+                  onClick={handleLockPortal}
                   className="px-3 py-1.5 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-cinzel text-[11px] cursor-pointer"
                 >
                   Lock Portal
                 </button>
+
                 <button
                   onClick={handleDownloadExcel}
                   className="px-4 py-1.5 rounded-full bg-[#352516] text-white font-cinzel text-[11px] font-bold hover:bg-[#20140A] flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -488,6 +646,36 @@ const handleClose = async () => {
           </div>
         )}
       </div>
+
+      {/* Aadhaar document preview */}
+      {previewImageUrl && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-3 sm:p-6">
+
+          <div className="w-full max-w-4xl h-[90vh] bg-white rounded-2xl overflow-hidden flex flex-col">
+
+            <div className="flex items-center justify-between gap-3 p-3 border-b border-stone-200">
+
+              <span className="text-sm font-semibold text-stone-800 truncate">
+                {previewImageUrl.title}
+              </span>
+
+              <button
+                onClick={() => setPreviewImageUrl(null)}
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-600"
+                title="Close document preview"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <iframe
+              src={previewImageUrl.url}
+              title={previewImageUrl.title}
+              className="w-full flex-1 border-0"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
