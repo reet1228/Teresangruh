@@ -251,38 +251,35 @@ export const RSVPModal: React.FC<RSVPModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSendViaWhatsApp = () => {
-    const guestListString = guests
-      .filter((g) => g.name.trim())
-      .map(
-        (g, idx) =>
-          `  ${idx + 1}. ${g.name} ${
-            g.aadharUrl
-              ? `(Aadhaar Card: ${g.aadharUrl})`
-              : g.aadharFileName
-              ? `(Aadhaar: ${g.aadharFileName})`
-              : ""
-          }`
-      )
-      .join("\n");
+  
+const handleSendViaWhatsApp = () => {
+  const guestListString = guests
+    .filter((g) => g.name.trim())
+    .map((g, idx) => `  ${idx + 1}. ${g.name}`)
+    .join("\n");
 
-    const text = encodeURIComponent(
-      `*Wedding RSVP — Ruchika & Sanyamji (#tereSAngRUh)*\n` +
-        `*Family Name:* ${familyName}\n` +
-        (primaryPhone ? `*Contact Phone:* ${primaryPhone}\n` : "") +
-        `*Attendance:* ${
-          attendance === "attending" ? "Joyfully Attending" : "Regretfully Declining"
-        }\n` +
-        (attendance === "attending"
-          ? `*Number of Guests:* ${guestCount}\n` +
-            `*Guests List & ID verification:*\n${guestListString || "  (Names provided online)"}\n`
-          : "") +
-        (message ? `*Wishes for Couple:* "${message}"\n` : "")
-    );
+  const text = encodeURIComponent(
+    `*Wedding RSVP — Ruchika & Sanyamji (#tereSAngRUh)*\n` +
+      `*Family Name:* ${familyName}\n` +
+      (primaryPhone ? `*Contact Phone:* ${primaryPhone}\n` : "") +
+      `*Attendance:* ${
+        attendance === "attending"
+          ? "Joyfully Attending"
+          : "Regretfully Declining"
+      }\n` +
+      (attendance === "attending"
+        ? `*Number of Guests:* ${guestCount}\n` +
+          `*Guests List:*\n${guestListString || "  (Names provided online)"}\n`
+        : "") +
+      (message ? `*Wishes for Couple:* "${message}"\n` : "")
+  );
 
-    // Default WhatsApp recipient from invitation coordinators (Rajendra Kumar)
-    window.open(`https://wa.me/919480426253?text=${text}`, "_blank");
-  };
+  // Default WhatsApp recipient from invitation coordinators (Rajendra Kumar)
+  window.open(
+    `https://wa.me/919480426253?text=${text}`,
+    "_blank"
+  );
+};
 
   const isAnyUploading = guests.some((g) => g.isUploading);
 
