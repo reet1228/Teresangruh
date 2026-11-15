@@ -29,6 +29,8 @@ interface GuestEntry {
   aadharFileName: string | null;
   aadharFileSize?: string;
   aadharUrl?: string | null;
+  aadharPath?: string | null;
+  aadharBucket?: string | null;
   file?: File | null;
   isUploading?: boolean;
   uploadError?: string | null;
