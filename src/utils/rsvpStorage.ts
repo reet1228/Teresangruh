@@ -5,7 +5,10 @@
  */
 
 import * as XLSX from "xlsx";
-import { syncRSVPToSupabaseDatabase } from "./supabase";
+import {
+  getSupabase,
+  syncRSVPToSupabaseDatabase,
+} from "./supabase";
 
 export interface StoredGuest {
   name: string;
@@ -237,18 +240,7 @@ export function exportRSVPsToExcel(customList?: StoredRSVP[]) {
   const cleanGuestRows = guestRows.map(({ _url, ...rest }) => rest);
   const wsGuests = XLSX.utils.json_to_sheet(cleanGuestRows);
    
-/** Generate a temporary private URL for an Aadhaar document. */
-export async function getAadhaarSignedUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from('guest-aadhaar')
-    .createSignedUrl(path, 300);
 
-  if (error) {
-    throw new Error(`Could not open Aadhaar document: ${error.message}`);
-  }
-
-  return data.signedUrl;
-}
 
   // Attach native clickable Excel hyperlinks and formulas to the Link column
   guestRows.forEach((row, rowIndex) => {
@@ -284,4 +276,34 @@ export async function getAadhaarSignedUrl(path: string): Promise<string> {
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `Ruchika_Sanyamji_Wedding_RSVP_List_${dateStr}.xlsx`;
   XLSX.writeFile(wb, fileName);
+}
+/**
+ * Generate a temporary private URL for an Aadhaar document.
+ * Requires an authenticated admin session and Storage read permission.
+ */
+export async function getAadhaarSignedUrl(
+  path: string,
+  bucket: string = "guest-aadhaar"
+): Promise<string> {
+  const client = getSupabase();
+
+  if (!client) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  if (!path) {
+    throw new Error("Aadhaar document path is missing.");
+  }
+
+  const { data, error } = await client.storage
+    .from(bucket)
+    .createSignedUrl(path, 300);
+
+  if (error) {
+    throw new Error(
+      `Could not open Aadhaar document: ${error.message}`
+    );
+  }
+
+  return data.signedUrl;
 }
