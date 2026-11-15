@@ -74,18 +74,21 @@ export async function uploadAadharToSupabase(
   const client = getSupabase();
 
   // If Supabase is not configured, convert to Base64 Data URL as local fallback
-  if (!client) {
-    console.warn(
-      "Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) not found. Using local Data URL fallback."
-    );
-    const dataUrl = await fileToDataUrl(file);
-    return {
-      publicUrl: dataUrl,
-      filePath: `local/${file.name}`,
-      fileName: file.name,
-      fileSize: formattedSize,
-    };
-  }
+ if (!client) {
+  console.warn(
+    "Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) not found. Using local Data URL fallback."
+  );
+
+  const dataUrl = await fileToDataUrl(file);
+
+  return {
+    publicUrl: dataUrl,
+    filePath: `local/${file.name}`,
+    bucket: "local",
+    fileName: file.name,
+    fileSize: formattedSize,
+  };
+}
 
   try {
     // Sanitize names for path
@@ -111,27 +114,21 @@ export async function uploadAadharToSupabase(
     if (uploadError) {
       console.warn(`Upload to bucket '${targetBucket}' failed, trying fallback bucket:`, uploadError);
       
-      // Try alternative bucket 'aadhar-cards' if target was 'guest-aadhaar'
-      const fallbackBucket = targetBucket === "guest-aadhaar" ? "aadhar-cards" : "guest-aadhaar";
-      const { error: retryError } = await client.storage
-        .from(fallbackBucket)
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type || "application/octet-stream",
-        });
+     // Use the only configured private Aadhaar bucket
+const targetBucket = "guest-aadhaar";
 
-      if (retryError) {
-        console.error("Both bucket uploads failed:", retryError);
-        const fallbackUrl = await fileToDataUrl(file);
-        return {
-          publicUrl: fallbackUrl,
-          filePath,
-          fileName: file.name,
-          fileSize: formattedSize,
-        };
-      }
-    }
+// Upload directly to the private bucket
+const { error: uploadError } = await client.storage
+  .from(targetBucket)
+  .upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: true,
+    contentType: file.type || "application/octet-stream",
+  });
+
+if (uploadError) {
+  throw new Error(`Aadhaar upload failed: ${uploadError.message}`);
+}
 
     // Generate link: First try signed URL (valid for 1 full year) in case bucket is private (as defined in setup.sql)
     let finalUrl = "";
@@ -154,20 +151,22 @@ export async function uploadAadharToSupabase(
     }
 
     return {
-      publicUrl: finalUrl,
-      filePath,
-      fileName: file.name,
-      fileSize: formattedSize,
-    };
+  publicUrl: finalUrl,
+  filePath,
+  bucket: targetBucket,
+  fileName: file.name,
+  fileSize: formattedSize,
+};
   } catch (err) {
     console.error("Exception during Aadhaar upload to Supabase:", err);
-    const fallbackUrl = await fileToDataUrl(file);
-    return {
-      publicUrl: fallbackUrl,
-      filePath: `fallback/${file.name}`,
-      fileName: file.name,
-      fileSize: formattedSize,
-    };
+const fallbackUrl = await fileToDataUrl(file);
+return {
+  publicUrl: fallbackUrl,
+  filePath: `fallback/${file.name}`,
+  bucket: "local",
+  fileName: file.name,
+  fileSize: formattedSize,
+};
   }
 }
 
