@@ -105,6 +105,50 @@ export function getStoredRSVPs(): StoredRSVP[] {
     return INITIAL_DEMO_RSVPS;
   }
 }
+
+/**
+ * Fetch real RSVP records from Supabase for the Admin Portal.
+ */
+export async function fetchRSVPsFromSupabase(): Promise<StoredRSVP[]> {
+  const client = getSupabase();
+
+  if (!client) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await client
+    .from("wedding_rsvps")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Unable to fetch RSVPs: ${error.message}`);
+  }
+
+  return (data || []).map((row: any) => {
+    const timestamp = row.created_at || new Date().toISOString();
+
+    return {
+      id: String(row.id),
+      timestamp,
+      dateFormatted: new Date(timestamp).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      familyName: row.family_name || "",
+      primaryPhone: row.primary_phone || "",
+      attendance: row.attendance === "attending" ? "attending" : "declining",
+      guestCount: Number(row.guest_count || 0),
+      guests: Array.isArray(row.guests) ? row.guests : [],
+      message: row.message || "",
+    };
+  });
+}
+
 /**
  * Delete an RSVP entry from local browser storage.
  */
