@@ -62,6 +62,7 @@ export interface UploadResult {
  * Returns a working URL (signed or public) that can be clicked in the Excel sheet
  */
 
+
 export async function uploadAadharToSupabase(
   file: File,
   guestName: string,
@@ -74,8 +75,6 @@ export async function uploadAadharToSupabase(
 
   const client = getSupabase();
 
-  // Aadhaar documents must be uploaded to Supabase.
-  // Do not silently store them as local Base64 data.
   if (!client) {
     throw new Error(
       "Supabase is not configured. Aadhaar upload cannot continue."
@@ -96,8 +95,6 @@ export async function uploadAadharToSupabase(
     const randomSuffix = Math.random().toString(36).substring(2, 6);
 
     const filePath = `${cleanFamily}/${timestamp}_${cleanGuest}_${randomSuffix}.${ext}`;
-
-    // Use the private Aadhaar bucket.
     const targetBucket = "guest-aadhaar";
 
     const { error: uploadError } = await client.storage
@@ -114,8 +111,6 @@ export async function uploadAadharToSupabase(
       );
     }
 
-    // Do not generate a long-lived signed URL here.
-    // The admin preview will request a temporary URL separately.
     return {
       publicUrl: "",
       filePath,
@@ -128,88 +123,8 @@ export async function uploadAadharToSupabase(
     throw err;
   }
 }
-}
 
-  try {
-    // Sanitize names for path
-    const cleanFamily = (familyName || "General").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-    const cleanGuest = (guestName || "Guest").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-    const ext = file.name.split(".").pop() || "jpg";
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 6);
-    const filePath = `${cleanFamily}/${timestamp}_${cleanGuest}_${randomSuffix}.${ext}`;
-
-    // Target bucket name (try configured, then guest-aadhaar, then aadhar-cards)
-    const targetBucket = SUPABASE_BUCKET;
-
-    // Upload to Supabase Storage Bucket
-    const { error: uploadError } = await client.storage
-      .from(targetBucket)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type || "application/octet-stream",
-      });
-
-    if (uploadError) {
-      console.warn(`Upload to bucket '${targetBucket}' failed, trying fallback bucket:`, uploadError);
-      
-     // Use the only configured private Aadhaar bucket
-const targetBucket = "guest-aadhaar";
-
-// Upload directly to the private bucket
-const { error: uploadError } = await client.storage
-  .from(targetBucket)
-  .upload(filePath, file, {
-    cacheControl: "3600",
-    upsert: true,
-    contentType: file.type || "application/octet-stream",
-  });
-
-if (uploadError) {
-  throw new Error(`Aadhaar upload failed: ${uploadError.message}`);
-}
-
-    // Generate link: First try signed URL (valid for 1 full year) in case bucket is private (as defined in setup.sql)
-    let finalUrl = "";
-    try {
-      const { data: signedData, error: signedError } = await client.storage
-        .from(targetBucket)
-        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 365 days
-
-      if (!signedError && signedData?.signedUrl) {
-        finalUrl = signedData.signedUrl;
-      }
-    } catch {}
-
-    // If signed URL is empty, use getPublicUrl
-    if (!finalUrl) {
-      const { data: urlData } = client.storage
-        .from(targetBucket)
-        .getPublicUrl(filePath);
-      finalUrl = urlData.publicUrl;
-    }
-
-    return {
-  publicUrl: finalUrl,
-  filePath,
-  bucket: targetBucket,
-  fileName: file.name,
-  fileSize: formattedSize,
-};
-  } catch (err) {
-    console.error("Exception during Aadhaar upload to Supabase:", err);
-const fallbackUrl = await fileToDataUrl(file);
-return {
-  publicUrl: fallbackUrl,
-  filePath: `fallback/${file.name}`,
-  bucket: "local",
-  fileName: file.name,
-  fileSize: formattedSize,
-};
-  }
-}
-
+  
 /**
  * Helper to convert file to Base64 Data URL for local preview/fallback
  */
