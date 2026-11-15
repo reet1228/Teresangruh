@@ -608,6 +608,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                               </span>
                              
                               {g.aadharPath ? (
+                              <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   onClick={() =>
                                     handleOpenAadhaar(
@@ -627,6 +628,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                                   </span>
                                   <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                                 </button>
+                                
                               <button
                                 onClick={() =>
                                   handleDownloadAadhaar(
@@ -642,6 +644,7 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
                                 <Download className="w-3 h-3" />
                                 <span>Download</span>
                               </button>
+                                </div>
                               ) : g.aadharFileName ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200 shrink-0">
                                   <ShieldCheck className="w-3 h-3 text-stone-500" />
