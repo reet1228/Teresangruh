@@ -279,6 +279,9 @@ export const HostRSVPAdminModal: React.FC<HostRSVPAdminModalProps> = ({
             <span className="text-[10px] font-cinzel font-bold text-[#8C672A] tracking-[0.25em] uppercase block mb-1">
               HOST &amp; ORGANIZER ACCESS
             </span>
+            <span className="text-xs text-red-600">
+              Aadhaar: {g.aadharPath ? "PATH FOUND" : "PATH MISSING"}
+            </span>
 
             <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-[#352516] mb-2">
               Private RSVP Portal
